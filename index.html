@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beubeuland &bull; Client</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+* { box-sizing: border-box; }
+body { 
+  font-family: 'Inter', system-ui, sans-serif; 
+  background: #09090b; 
+  color: #fafafa; 
+  margin: 0; 
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+}
+
+.tiktok-feed { 
+  flex: 1;
+  overflow-y: scroll; 
+  scroll-snap-type: y mandatory; 
+  scrollbar-width: none; 
+  position: relative;
+  height: 100%;
+}
+.tiktok-feed::-webkit-scrollbar { display: none; }
+.tiktok-feed .video-slide { scroll-snap-stop: always; }
+
+.video-slide { 
+  scroll-snap-align: start; 
+  height: 100%; 
+  min-height: 100%; 
+  width: 100%; 
+  position: relative; 
+  background: #000; 
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.video-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  background: #000;
+  width: 100%;
+  height: 100%;
+}
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+
+.video-player { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  background: #000; 
+  display: block;
+}
+
+.video-overlay { 
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.35) 100%); 
+  pointer-events: none; 
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.demo-container { 
+  width: 100%;
+  max-width: 420px; 
+  margin: 0 auto; 
+  border: 8px solid #18181b; 
+  border-radius: 32px; 
+  overflow: hidden; 
+  position: relative; 
+  flex: 1;
+  min-height: 0;
+  display: flex; 
+  flex-direction: column;
+  background: #000;
+}
+
+.nav-tab { 
+  color: #a1a1aa; 
+  transition: all 0.15s ease; 
+  font-size: 13px; 
+  font-weight: 500; 
+}
+.nav-tab.active { 
+  background: #27272a; 
+  color: #fff; 
+}
+
+.action-btn { 
+  color: #fff; 
+  background: none; 
+  border: none; 
+  cursor: pointer; 
+}
+.action-btn i { transition: color 0.2s ease; }
+.action-btn.liked i { color: #ef4444; }
+.action-btn.liked span { color: #ef4444; }
+
+#upload-progress { display: none; }
+#upload-progress.visible { display: block; }
+
+.video-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px 10px;
+  background: rgba(10,10,10,0.85);
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px;
+  border-top: 1px solid rgba(39,39,42,0.5);
+  z-index: 25;
+  backdrop-filter: blur(4px);
+}
+.controls-row { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+}
+.controls-row button {
+  background: rgba(255,255,255,0.18); 
+  border: none; 
+  color: #fff;
+  width: 36px; 
+  height: 36px; 
+  border-radius: 50%;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  cursor: pointer; 
+  transition: all 0.2s; 
+  font-size: 13px; 
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+}
+.controls-row button:hover { 
+  background: rgba(255,255,255,0.4); 
+  transform: scale(1.08); 
+}
+.controls-row button:active { transform: scale(0.95); }
+.progress-bar-container { 
+  flex: 1; 
+  height: 5px; 
+  background: rgba(255,255,255,0.2); 
+  border-radius: 3px; 
+  cursor: pointer; 
+  position: relative; 
+}
+.progress-bar-fill { 
+  height: 100%; 
+  background: #fff; 
+  border-radius: 3px; 
+  width: 0%; 
+  transition: width 0.1s linear; 
+}
+.time-display { 
+  font-size: 13px; 
+  color: rgba(255,255,255,0.9); 
+  min-width: 75px; 
+  text-align: right; 
+  font-variant-numeric: tabular-nums; 
+  flex-shrink: 0; 
+  font-weight: 500; 
+}
+.volume-btn { position: relative; }
+.volume-slider {
+  position: absolute; 
+  bottom: 44px; 
+  left: 50%; 
+  transform: translateX(-50%);
+  width: 32px; 
+  height: 80px; 
+  background: rgba(0,0,0,0.9); 
+  border-radius: 16px;
+  padding: 8px 0; 
+  display: none; 
+  align-items: center; 
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.volume-btn:hover .volume-slider { display: flex; }
+.volume-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 4px;
+  height: 64px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  outline: none;
+}
+.volume-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.volume-slider input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.video-loader { 
+  position: absolute; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%); 
+  z-index: 15; 
+  display: none; 
+}
+.video-loader.visible { display: block; }
+.spinner { 
+  width: 32px; 
+  height: 32px; 
+  border: 3px solid rgba(255,255,255,0.2); 
+  border-top-color: #fff; 
+  border-radius: 50%; 
+  animation: spin 0.7s linear infinite; 
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.big-play-btn {
+  position: absolute; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%); 
+  z-index: 20;
+  width: 64px; 
+  height: 64px; 
+  background: rgba(0,0,0,0.6); 
+  border-radius: 50%;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  color: #fff; 
+  font-size: 24px;
+  opacity: 0; 
+  transition: opacity 0.2s ease; 
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  border: 2px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+}
+.big-play-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-header {
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  right: 0; 
+  z-index: 50;
+  background: rgba(0,0,0,0.85); 
+  padding: 6px 12px;
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  height: 36px;
+}
+.app-header .logo-text { font-weight: 700; font-size: 15px; }
+.app-header .discord-btn {
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+  padding: 4px 10px;
+  background: #5865F2; 
+  color: #fff; 
+  font-size: 10px; 
+  font-weight: 600;
+  border-radius: 20px; 
+  text-decoration: none;
+}
+.app-header .discord-btn:hover { background: #4752C4; }
+
+.video-info { 
+  position: absolute; 
+  bottom: 72px; 
+  left: 12px; 
+  right: 70px; 
+  z-index: 20; 
+  pointer-events: none;
+}
+.video-actions-right { 
+  position: absolute; 
+  right: 10px; 
+  bottom: 72px; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 14px; 
+  z-index: 30; 
+}
+
+.profile-edit-modal {
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.8); 
+  z-index: 100;
+  display: none; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 20px;
+}
+.profile-edit-modal.visible { display: flex; }
+.profile-edit-box { 
+  background: #18181b; 
+  border-radius: 24px; 
+  padding: 24px; 
+  width: 100%; 
+  max-width: 400px; 
+}
+
+.limit-overlay {
+  position: absolute; 
+  inset: 0; 
+  background: rgba(0,0,0,0.92); 
+  z-index: 60;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+}
+.limit-box { text-align: center; padding: 32px; }
+
+.stripe-btn {
+  display: inline-flex; 
+  align-items: center; 
+  gap: 8px;
+  padding: 14px 28px; 
+  background: #635bff; 
+  color: #fff;
+  font-size: 14px; 
+  font-weight: 600; 
+  border-radius: 14px;
+  text-decoration: none; 
+  transition: all 0.2s;
+}
+.stripe-btn:hover { 
+  background: #7c73ff; 
+  transform: translateY(-1px); 
+}
+
+/* FIXED: Sections hidden by default, shown via JS */
+.section { 
+  display: none !important;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.section.active { 
+  display: flex !important;
+  flex-direction: column;
+}
+.section.active.block-section {
+  display: block !important;
+  overflow-y: auto;
+}
+
+.video-slide.expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 200 !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  max-width: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+}
+.video-slide.expanded .video-wrapper {
+  height: 100vh !important;
+  width: 100vw !important;
+}
+.video-slide.expanded .video-controls {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 210 !important;
+}
+.video-slide.expanded .video-info { bottom: 80px !important; }
+.video-slide.expanded .video-actions-right { bottom: 80px !important; }
+.video-slide.expanded .app-header { display: none !important; }
+
+@keyframes devToastIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes devToastOut {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+}
+
+@media (max-height: 700px) {
+  .demo-container { border-width: 6px; border-radius: 24px; }
+  .app-header { padding: 4px 10px; height: 32px; }
+  .video-controls { padding: 6px 10px 8px; }
+  .video-info { bottom: 64px; }
+  .video-actions-right { bottom: 64px; }
+}
+
+@media (max-height: 600px) {
+  .demo-container { border-width: 4px; border-radius: 16px; }
+  .app-header { padding: 2px 8px; height: 28px; }
+  .app-header .logo-text { font-size: 13px; }
+  .video-controls { padding: 4px 8px 6px; }
+  .video-info { bottom: 56px; }
+  .video-actions-right { bottom: 56px; }
+}
+
+/* ==== ADMIN PANEL (mode developpeur uniquement) ==== */
+.admin-container { padding: 4px 2px 24px; }
+.admin-header-inner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #27272a;
+}
+.admin-header-left { display: flex; align-items: center; gap: 10px; }
+.admin-logo { width: 34px; height: 34px; background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.admin-logo span { color: #000; font-weight: 900; font-size: 16px; letter-spacing: -1px; }
+.admin-title-group { display: flex; flex-direction: column; }
+.admin-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.2; }
+.admin-subtitle { font-size: 11px; color: #a1a1aa; margin-top: 1px; }
+.admin-back-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #18181b;
+  border: 1px solid #27272a; border-radius: 12px; color: #d4d4d8; font-size: 12px;
+  font-weight: 500; cursor: pointer; flex-shrink: 0;
+}
+.admin-back-btn:hover { background: #27272a; color: #fff; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 18px; }
+.stat-card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 12px; }
+.stat-label { font-size: 10px; color: #a1a1aa; font-weight: 500; margin-bottom: 6px; }
+.stat-value { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.stat-value.emerald { color: #34d399; }
+.stat-value.orange { color: #fb923c; }
+
+.tabs-wrapper { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tabs-wrapper::-webkit-scrollbar { display: none; }
+.admin-tab {
+  padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
+  color: #a1a1aa; background: transparent; border: none; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.admin-tab:hover { color: #d4d4d8; background: #18181b; }
+.admin-tab.active { color: #fff; background: #27272a; }
+
+.content-card { background: #18181b; border: 1px solid #27272a; border-radius: 14px; overflow: hidden; }
+.content-card-header {
+  padding: 14px 16px; border-bottom: 1px solid #27272a; display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: #e4e4e7;
+}
+.content-card-body { padding: 0; }
+
+.table-scroll-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.data-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+.data-table th {
+  text-align: left; padding: 9px 12px; font-size: 9px; font-weight: 600; color: #a1a1aa;
+  text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #27272a; background: #0f0f11;
+}
+.data-table td { padding: 9px 12px; font-size: 12px; color: #d4d4d8; border-bottom: 1px solid #27272a; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #1c1c1f; }
+
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3f3f46, #18181b);
+  display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+  color: #fff; overflow: hidden; flex-shrink: 0;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-info { display: flex; flex-direction: column; min-width: 0; }
+.user-name { font-weight: 600; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.user-id { font-size: 10px; color: #71717a; font-family: monospace; }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+.badge-premium { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+.badge-free { background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
+.badge-admin { background: #1e3a5f; color: #60a5fa; border: 1px solid #1e40af; }
+
+.btn-icon { width: 28px; height: 28px; border-radius: 8px; border: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; transition: all 0.15s; }
+.btn-warn { background: #7c2d12; color: #fdba74; }
+.btn-warn:hover { background: #9a3412; }
+.btn-delete { background: #7f1d1d; color: #fca5a5; }
+.btn-delete:hover { background: #991b1b; }
+.btn-view { background: #27272a; color: #d4d4d8; }
+.btn-view:hover { background: #3f3f46; }
+
+.upload-zone { border: 2px dashed #3f3f46; border-radius: 16px; padding: 28px 14px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.upload-zone:hover { border-color: #10b981; background: #0f172a; }
+.upload-zone i { font-size: 34px; color: #52525b; margin-bottom: 10px; }
+.upload-zone-title { font-size: 14px; font-weight: 600; color: #d4d4d8; }
+.upload-zone-sub { font-size: 11px; color: #71717a; margin-top: 4px; }
+
+.admin-input {
+  width: 100%; padding: 12px 14px; background: #0f0f11; border: 1px solid #27272a;
+  border-radius: 12px; color: #fafafa; font-size: 14px; outline: none; transition: border-color 0.2s;
+}
+.admin-input:focus { border-color: #3f3f46; }
+.admin-input::placeholder { color: #52525b; }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  z-index: 400; display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box { background: #18181b; border: 1px solid #27272a; border-radius: 18px; width: 100%; max-width: 400px; overflow: hidden; }
+.modal-header { padding: 18px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { font-size: 15px; font-weight: 700; margin: 0; }
+.modal-close { background: none; border: none; color: #71717a; cursor: pointer; font-size: 15px; }
+.modal-close:hover { color: #fff; }
+.modal-body { padding: 18px; }
+.modal-footer { padding: 14px 18px; border-top: 1px solid #27272a; display: flex; gap: 10px; }
+.modal-btn { flex: 1; padding: 11px; border-radius: 12px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.modal-btn-primary { background: #ea580c; color: #fff; }
+.modal-btn-primary:hover { background: #c2410c; }
+.modal-btn-secondary { background: #27272a; color: #d4d4d8; }
+.modal-btn-secondary:hover { background: #3f3f46; }
+
+.empty-state { text-align: center; padding: 28px 16px; color: #71717a; font-size: 13px; }
+.empty-state i { font-size: 28px; margin-bottom: 10px; display: block; }
+
+.warning-item { padding: 12px 14px; border-bottom: 1px solid #27272a; }
+.warning-item:last-child { border-bottom: none; }
+.warning-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+.warning-user { font-weight: 600; color: #fafafa; font-size: 12px; }
+.warning-date { font-size: 10px; color: #71717a; }
+.warning-status { font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.warning-status.seen { background: #064e3b; color: #34d399; }
+.warning-status.unseen { background: #7c2d12; color: #fdba74; }
+.warning-msg { background: #0f0f11; border: 1px solid #27272a; border-radius: 10px; padding: 10px; font-size: 12px; color: #d4d4d8; line-height: 1.5; }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<!-- Header -->
+<div class="max-w-[520px] w-full mx-auto px-4 pt-1 pb-0 flex-shrink-0 text-center">
+  <div class="inline-flex items-center gap-2" style="padding: 2px 0;">
+    <div class="w-6 h-6 bg-white rounded-lg flex items-center justify-center">
+      <span class="text-black font-black text-sm tracking-[-1px]">B</span>
+    </div>
+    <span class="font-bold text-lg tracking-tighter">beubeuland</span>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="w-full px-3 mb-1 flex-shrink-0" style="max-width: 420px; margin: 0 auto;">
+  <div class="flex bg-zinc-900 rounded-3xl p-1 text-sm" id="nav-container">
+    <button onclick="showSection('feed')" class="nav-tab flex-1 py-2 px-4 rounded-3xl active" id="nav-feed">Feed</button>
+    <button onclick="showSection('profile')" class="nav-tab flex-1 py-2 px-4 rounded-3xl" id="nav-profile">Profil</button>
+    <button onclick="showSection('upload')" class="nav-tab flex-1 py-2 px-4 rounded-3xl" id="nav-upload">Upload</button>
+    <button onclick="showSection('admin')" class="nav-tab flex-1 py-2 px-4 rounded-3xl hidden" id="nav-admin">Admin</button>
+  </div>
+</div>
+
+<div class="max-w-[520px] mx-auto px-4 pb-2 flex-1 flex flex-col overflow-hidden" style="width: 100%; min-height: 0;">
+
+  <!-- FEED -->
+  <div id="section-feed" class="section active" style="flex-direction: column;">
+    <div class="demo-container bg-black">
+      <div class="app-header">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+            <span class="text-black text-xs font-black">B</span>
+          </div>
+          <span class="logo-text">beubeuland</span>
+        </div>
+        <a href="https://discord.gg/a2HexAGYK" target="_blank" class="discord-btn">
+          <i class="fab fa-discord" style="font-size:10px;"></i> Discord
+        </a>
+      </div>
+      <div class="tiktok-feed" id="tiktok-feed" style="flex: 1; min-height: 0; overflow-y: scroll;"></div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="section-profile" class="section block-section">
+    <div class="bg-zinc-900 rounded-3xl p-6">
+      <div class="flex flex-col items-center">
+        <div class="relative">
+          <div id="profile-avatar" class="w-24 h-24 bg-gradient-to-br from-zinc-700 to-zinc-900 rounded-full flex items-center justify-center border-4 border-zinc-800 mb-4 overflow-hidden">
+            <span id="profile-avatar-text" class="text-6xl font-black tracking-[-3px]">B</span>
+            <img id="profile-avatar-img" class="hidden w-full h-full object-cover" />
+          </div>
+          <button onclick="openProfileEdit()" class="absolute bottom-3 right-0 w-8 h-8 bg-white text-black rounded-full flex items-center justify-center text-xs">
+            <i class="fas fa-pen"></i>
+          </button>
+        </div>
+        <h2 id="profile-name" class="text-2xl font-bold">Beubeuland</h2>
+        <p id="profile-bio" class="text-zinc-400 text-sm mt-1 text-center max-w-xs">demo@beubeuland.com</p>
+        <div id="profile-status" class="mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900">
+          <i class="fas fa-check-circle"></i> <span>Compte actif</span>
+        </div>
+        <button id="dev-exit-btn" onclick="deactivateDevMode()" class="hidden mt-2 text-xs text-zinc-500 underline">Quitter le mode developpeur</button>
+      </div>
+      <div class="mt-8 space-y-3">
+        <button onclick="showSection('upload')" class="w-full py-3.5 bg-emerald-950 text-emerald-400 rounded-2xl text-sm font-medium">Publier une video</button>
+        <a href="https://discord.gg/a2HexAGYK" target="_blank" class="w-full flex items-center justify-center gap-2 py-3.5 bg-[#5865F2] hover:bg-[#4752C4] rounded-2xl text-sm font-semibold" style="text-decoration:none;">
+          <i class="fab fa-discord"></i> Rejoins la communaute
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="section-upload" class="section block-section">
+    <div class="bg-zinc-900 rounded-3xl p-6">
+      <div class="mb-6">
+        <div class="font-bold text-xl">Publier une video</div>
+        <div class="text-emerald-400 text-sm"><span id="upload-count">0</span>/3 aujourd'hui</div>
+      </div>
+      <div id="upload-dropzone" onclick="document.getElementById('upload-input').click()" class="border-2 border-dashed border-zinc-700 rounded-3xl p-9 text-center cursor-pointer">
+        <i class="fas fa-cloud-upload-alt text-4xl text-zinc-400 mb-4"></i>
+        <div class="font-medium">Glissez ou cliquez pour uploader</div>
+        <div class="text-xs text-zinc-500">MP4 &bull; MOV &bull; Max 500MB</div>
+      </div>
+      <input type="file" id="upload-input" accept="video/*" class="hidden" onchange="handleVideoUpload(this)">
+      <div id="upload-form" class="hidden space-y-4">
+        <input type="text" id="video-title" placeholder="Titre *" class="w-full px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl text-lg">
+        <textarea id="video-desc" placeholder="Description" rows="3" class="w-full px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl"></textarea>
+        <div id="upload-progress" class="text-xs text-zinc-400"></div>
+        <button id="publish-btn" onclick="publishVideo()" class="w-full py-4 bg-emerald-600 rounded-2xl font-semibold">Publier la video</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN (mode developpeur uniquement, jamais visible pour les autres utilisateurs) -->
+  <div id="section-admin" class="section block-section">
+    <div class="admin-container">
+
+      <div class="admin-header-inner">
+        <div class="admin-header-left">
+          <div class="admin-logo"><span>B</span></div>
+          <div class="admin-title-group">
+            <span class="admin-title">Panneau Admin</span>
+            <span class="admin-subtitle">ines_dz&#127474;&#127462;&#129467;</span>
+          </div>
+        </div>
+        <button onclick="showSection('feed')" class="admin-back-btn">
+          <i class="fas fa-arrow-left"></i> Retour
+        </button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Utilisateurs</div>
+          <div class="stat-value" id="stat-users">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Videos</div>
+          <div class="stat-value" id="stat-videos">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avertissements</div>
+          <div class="stat-value orange" id="stat-warnings">0</div>
+        </div>
+      </div>
+
+      <div class="tabs-wrapper">
+        <button onclick="adminShowTab('upload')" class="admin-tab active" id="atab-upload"><i class="fas fa-cloud-upload-alt mr-1"></i>Upload</button>
+        <button onclick="adminShowTab('users')" class="admin-tab" id="atab-users"><i class="fas fa-users mr-1"></i>Utilisateurs</button>
+        <button onclick="adminShowTab('videos')" class="admin-tab" id="atab-videos"><i class="fas fa-video mr-1"></i>Videos</button>
+        <button onclick="adminShowTab('warnings')" class="admin-tab" id="atab-warnings"><i class="fas fa-exclamation-triangle mr-1"></i>Avertissements</button>
+      </div>
+
+      <!-- Admin Upload -->
+      <div id="admin-upload" class="admin-tab-content">
+        <div class="content-card">
+          <div class="content-card-header"><i class="fas fa-cloud-upload-alt text-emerald-400"></i>Publier une video</div>
+          <div class="content-card-body" style="padding: 16px;">
+            <div id="admin-dropzone" onclick="document.getElementById('admin-file').click()" class="upload-zone">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div class="upload-zone-title">Glissez votre video ici</div>
+              <div class="upload-zone-sub">MP4, MOV &mdash; Max 500MB</div>
+            </div>
+            <input type="file" id="admin-file" accept="video/*" class="hidden" onchange="handleAdminFile(this)">
+            <div id="admin-form" class="hidden" style="margin-top: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" id="admin-title" placeholder="Titre de la video *" class="admin-input">
+                <textarea id="admin-desc" placeholder="Description (optionnelle)" rows="3" class="admin-input" style="resize: vertical; min-height: 70px;"></textarea>
+                <div id="admin-progress" style="font-size: 11px; color: #a1a1aa; display: none;"></div>
+                <button id="admin-publish-btn" onclick="publishAdminVideo()" class="modal-btn modal-btn-primary" style="padding: 12px;">Publier sur le feed</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Users -->
+      <div id="admin-users" class="admin-tab-content hidden">
+        <div class="content-card">
+          <div class="content-card-header"><i class="fas fa-users text-emerald-400"></i>Utilisateurs inscrits</div>
+          <div class="content-card-body"><div id="users-list"></div></div>
+        </div>
+      </div>
+
+      <!-- Admin Videos -->
+      <div id="admin-videos" class="admin-tab-content hidden">
+        <div class="content-card">
+          <div class="content-card-header"><i class="fas fa-video text-emerald-400"></i>Toutes les videos</div>
+          <div class="content-card-body"><div id="all-videos-list"></div></div>
+        </div>
+      </div>
+
+      <!-- Admin Warnings -->
+      <div id="admin-warnings" class="admin-tab-content hidden">
+        <div class="content-card">
+          <div class="content-card-header"><i class="fas fa-exclamation-triangle text-orange-400"></i>Avertissements envoyes</div>
+          <div class="content-card-body"><div id="warnings-list"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Admin: Warning Modal -->
+<div id="warning-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3><i class="fas fa-exclamation-triangle text-orange-400 mr-2"></i>Envoyer un avertissement</h3>
+      <button onclick="closeWarningModal()" class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 10px; color: #a1a1aa; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Destinataire</div>
+        <div id="warning-target-name" style="font-weight: 700; color: #34d399; font-size: 14px;"></div>
+        <input type="hidden" id="warning-target-id">
+      </div>
+      <div>
+        <label style="font-size: 10px; color: #a1a1aa; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; display: block;">Message</label>
+        <textarea id="warning-message" rows="4" placeholder="Explique la raison de cet avertissement..." class="admin-input" style="resize: vertical; min-height: 90px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="sendWarning()" class="modal-btn modal-btn-primary">Envoyer</button>
+      <button onclick="closeWarningModal()" class="modal-btn modal-btn-secondary">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin: Video Preview Modal -->
+<div id="video-preview-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width: 460px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-play-circle text-emerald-400 mr-2"></i>Apercu video</h3>
+      <button onclick="closeVideoPreview()" class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding: 0; background: #000;">
+      <video id="preview-video" style="width: 100%; max-height: 60vh; display: block;" controls playsinline></video>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeVideoPreview()" class="modal-btn modal-btn-secondary">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Comment Modal -->
+<div id="comment-modal" class="profile-edit-modal">
+  <div class="profile-edit-box" style="max-width: 400px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold text-lg"><i class="fas fa-comments mr-2 text-emerald-400"></i>Commentaires</h3>
+      <button onclick="closeCommentModal()" class="text-zinc-400 hover:text-white"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="comments-count" style="font-size:11px;color:#a1a1aa;margin-bottom:8px;">0 commentaire</div>
+    <div id="comments-list" style="flex:1;overflow-y:auto;min-height:0;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;border-top:1px solid #27272a;padding-top:12px;">
+      <input type="text" id="comment-input" placeholder="Ajouter un commentaire..." style="flex:1;padding:10px 14px;background:#0f0f11;border:1px solid #27272a;border-radius:12px;color:#fafafa;font-size:14px;outline:none;" onkeydown="if(event.key==='Enter')submitComment()">
+      <button onclick="submitComment()" style="padding:10px 16px;background:#10b981;border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Edit Modal -->
+<div id="profile-edit-modal" class="profile-edit-modal">
+  <div class="profile-edit-box">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold text-lg">Modifier le profil</h3>
+      <button onclick="closeProfileEdit()" class="text-zinc-400 hover:text-white"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-zinc-400 mb-1 block">Photo de profil</label>
+        <input type="file" id="edit-avatar" accept="image/*" class="w-full text-sm text-zinc-400" onchange="previewAvatar(this)">
+        <div id="avatar-preview" class="w-16 h-16 rounded-full bg-zinc-800 mt-2 hidden overflow-hidden">
+          <img class="w-full h-full object-cover" />
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-zinc-400 mb-1 block">Pseudo</label>
+        <input type="text" id="edit-name" placeholder="Ton pseudo" class="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white">
+      </div>
+      <div>
+        <label class="text-xs text-zinc-400 mb-1 block">Bio</label>
+        <textarea id="edit-bio" placeholder="Ta bio..." rows="2" class="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white"></textarea>
+      </div>
+      <button onclick="saveProfile()" class="w-full py-3 bg-white text-black font-semibold rounded-xl">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Code Developpeur -->
+<div id="dev-code-modal" style="position: fixed;inset: 0;background: rgba(0,0,0,0.7);backdrop-filter: blur(4px);z-index: 300;display: none;align-items: center;justify-content: center;padding: 20px;">
+  <div style="background: #18181b;border: 1px solid #27272a;border-radius: 20px;width: 100%;max-width: 340px;padding: 24px;text-align: center;">
+    <div style="font-size: 20px; margin-bottom: 4px;">&#128274;</div>
+    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Mode Developpeur</div>
+    <div style="font-size: 12px; color: #a1a1aa; margin-bottom: 16px;">Entrez le code d'acces</div>
+    <input type="password" id="dev-code-input" placeholder="Code" style="width: 100%;padding: 14px 16px;background: #0f0f11;border: 1px solid #27272a;border-radius: 12px;color: #fafafa;font-size: 15px;text-align: center;letter-spacing: 4px;outline: none;margin-bottom: 12px;" onkeydown="if(event.key==='Enter')checkDevCode()">
+    <div id="dev-code-error" style="font-size: 11px; color: #ef4444; margin-bottom: 12px; display: none;">Code incorrect</div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="closeDevCodeModal()" style="flex: 1;padding: 12px;background: #27272a;border: none;border-radius: 12px;color: #d4d4d8;font-size: 13px;font-weight: 600;cursor: pointer;">Annuler</button>
+      <button onclick="checkDevCode()" style="flex: 1;padding: 12px;background: #10b981;border: none;border-radius: 12px;color: #fff;font-size: 13px;font-weight: 600;cursor: pointer;">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bouton Mode Developpeur -->
+<button id="dev-btn" onclick="openDevCodeModal()" style="position: fixed;bottom: 20px;right: 20px;width: 32px;height: 32px;background: rgba(255,255,255,0.05);border: 1px solid rgba(255,255,255,0.08);border-radius: 8px;color: rgba(255,255,255,0.25);font-size: 10px;font-weight: 700;cursor: pointer;z-index: 50;display: flex;align-items: center;justify-content: center;transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.25)'">D</button>
+<script>
+const DEV_CODE = 'sil55201';
+
+const DB_NAME = 'beubeuland_db';
+const DB_VERSION = 4;
+const STORE_VIDEOS = 'videos';
+const STORE_USERS = 'users';
+const STORE_LIKES = 'likes';
+const STORE_COMMENTS = 'comments';
+const STORE_WARNINGS = 'warnings';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_VIDEOS)) db.createObjectStore(STORE_VIDEOS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORE_USERS)) db.createObjectStore(STORE_USERS, { keyPath: 'userId' });
+      if (!db.objectStoreNames.contains(STORE_LIKES)) db.createObjectStore(STORE_LIKES, { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains(STORE_COMMENTS)) db.createObjectStore(STORE_COMMENTS, { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains(STORE_WARNINGS)) db.createObjectStore(STORE_WARNINGS, { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('IndexedDB blocked'));
+  });
+}
+
+async function saveToStore(store, data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(new Error('Transaction aborted'));
+    try { tx.objectStore(store).put(data); } catch (e) { reject(e); }
+  });
+}
+
+async function getFromStore(store, key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getAllFromStore(store) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteFromStore(store, key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(new Error('Transaction aborted'));
+    try { tx.objectStore(store).delete(key); } catch (e) { reject(e); }
+  });
+}
+
+async function saveVideo(video) { await saveToStore(STORE_VIDEOS, video); }
+
+async function getVideos() {
+  const videos = await getAllFromStore(STORE_VIDEOS);
+  videos.sort((a, b) => b.id - a.id);
+  return videos;
+}
+
+async function deleteVideo(id) { await deleteFromStore(STORE_VIDEOS, id); }
+
+/* ========== USER ========== */
+function getUserId() {
+  try {
+    let uid = localStorage.getItem('beubeuland_userId');
+    if (!uid) {
+      uid = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('beubeuland_userId', uid);
+    }
+    return uid;
+  } catch (e) {
+    return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+}
+
+async function saveUserProfile(profile) {
+  try {
+    const uid = getUserId();
+    await saveToStore(STORE_USERS, {
+      userId: uid, name: profile.name || 'Beubeuland', bio: profile.bio || '',
+      avatar: profile.avatar || null,
+      joinedAt: profile.joinedAt || new Date().toISOString(),
+      lastActive: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('Erreur sauvegarde profil:', e);
+  }
+}
+
+async function loadUserProfile() {
+  try {
+    const data = await getFromStore(STORE_USERS, getUserId());
+    if (data) {
+      userProfile = { name: data.name, bio: data.bio, avatar: data.avatar };
+      localStorage.setItem('beubeuland_profile', JSON.stringify(userProfile));
+    }
+  } catch (e) {
+    console.error('Erreur chargement profil:', e);
+  }
+}
+
+/* ========== LIKES ========== */
+async function getLikesForVideo(videoId) {
+  try {
+    const likes = await getAllFromStore(STORE_LIKES);
+    return likes.filter(l => l.videoId === videoId);
+  } catch (e) {
+    console.error('Erreur chargement likes:', e);
+    return [];
+  }
+}
+
+async function hasUserLiked(videoId) {
+  try {
+    const likes = await getAllFromStore(STORE_LIKES);
+    return likes.some(l => l.videoId === videoId && l.userId === getUserId());
+  } catch (e) {
+    console.error('Erreur verification like:', e);
+    return false;
+  }
+}
+
+async function toggleLike(videoId) {
+  try {
+    const likes = await getAllFromStore(STORE_LIKES);
+    const existing = likes.find(l => l.videoId === videoId && l.userId === getUserId());
+    if (existing) {
+      await deleteFromStore(STORE_LIKES, existing.id);
+      return false;
+    } else {
+      await saveToStore(STORE_LIKES, {
+        videoId: videoId, userId: getUserId(),
+        created_at: new Date().toISOString()
+      });
+      return true;
+    }
+  } catch (e) {
+    console.error('Erreur like:', e);
+    return false;
+  }
+}
+
+/* ========== COMMENTAIRES ========== */
+async function getCommentsForVideo(videoId) {
+  try {
+    const comments = await getAllFromStore(STORE_COMMENTS);
+    return comments.filter(c => c.videoId === videoId).sort((a, b) => a.id - b.id);
+  } catch (e) {
+    console.error('Erreur chargement commentaires:', e);
+    return [];
+  }
+}
+
+async function addComment(videoId, text) {
+  if (!text || !text.trim()) return false;
+  try {
+    const profile = getProfile();
+    await saveToStore(STORE_COMMENTS, {
+      videoId: videoId,
+      userId: getUserId(),
+      userName: profile.name || 'Anonyme',
+      text: text.trim(),
+      created_at: new Date().toISOString()
+    });
+    return true;
+  } catch (e) {
+    console.error('Erreur commentaire:', e);
+    return false;
+  }
+}
+
+let currentCommentVideoId = null;
+
+function openCommentModal(id) {
+  currentCommentVideoId = id;
+  renderComments(id);
+  document.getElementById('comment-modal').classList.add('visible');
+  document.getElementById('comment-input').focus();
+}
+
+function closeCommentModal() {
+  document.getElementById('comment-modal').classList.remove('visible');
+  currentCommentVideoId = null;
+}
+
+async function renderComments(videoId) {
+  const list = document.getElementById('comments-list');
+  const countEl = document.getElementById('comments-count');
+  if (!list || !countEl) return;
+
+  try {
+    const comments = await getCommentsForVideo(videoId);
+    countEl.textContent = comments.length + ' commentaire' + (comments.length !== 1 ? 's' : '');
+
+    if (comments.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:32px 16px;color:#71717a;font-size:13px;"><i class="fas fa-comment-slash" style="font-size:24px;margin-bottom:8px;display:block;"></i>Aucun commentaire</div>';
+      return;
+    }
+
+    let html = '';
+    comments.forEach(c => {
+      const date = new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      html += '<div style="padding:10px 0;border-bottom:1px solid #27272a;">';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
+      html += '<span style="font-weight:600;font-size:12px;color:#34d399;">@' + escapeHtml(c.userName) + '</span>';
+      html += '<span style="font-size:10px;color:#71717a;">' + date + '</span>';
+      html += '</div>';
+      html += '<div style="font-size:13px;color:#d4d4d8;line-height:1.4;">' + escapeHtml(c.text) + '</div>';
+      html += '</div>';
+    });
+    list.innerHTML = html;
+  } catch (e) {
+    console.error('Erreur affichage commentaires:', e);
+    list.innerHTML = '<div style="text-align:center;padding:32px 16px;color:#71717a;font-size:13px;">Erreur de chargement</div>';
+  }
+}
+
+async function submitComment() {
+  const input = document.getElementById('comment-input');
+  const text = input.value.trim();
+  if (!text || !currentCommentVideoId) return;
+
+  try {
+    await addComment(currentCommentVideoId, text);
+    input.value = '';
+    await renderComments(currentCommentVideoId);
+    const comments = await getCommentsForVideo(currentCommentVideoId);
+    const countSpan = document.getElementById('comment-count-' + currentCommentVideoId);
+    if (countSpan) countSpan.textContent = comments.length;
+  } catch (err) {
+    console.error('Erreur commentaire:', err);
+  }
+}
+
+/* ========== STATE ========== */
+let uploadsToday = 0;
+let currentObjectUrls = [];
+let feedObserver = null;
+let userProfile = {};
+let userInteracted = false; // true des que l'utilisateur a touche l'ecran une seule fois, permet au son de sortir automatiquement ensuite
+
+function getProfile() {
+  return {
+    name: userProfile.name || 'Beubeuland',
+    bio: userProfile.bio || 'demo@beubeuland.com',
+    avatar: userProfile.avatar || null
+  };
+}
+
+function saveProfileData(data) {
+  userProfile = { ...userProfile, ...data };
+  localStorage.setItem('beubeuland_profile', JSON.stringify(userProfile));
+  saveUserProfile(userProfile);
+  renderProfile();
+}
+
+function renderProfile() {
+  const p = getProfile();
+  document.getElementById('profile-name').textContent = p.name;
+  document.getElementById('profile-bio').textContent = p.bio;
+  const avatarText = document.getElementById('profile-avatar-text');
+  const avatarImg = document.getElementById('profile-avatar-img');
+  if (p.avatar) { avatarText.classList.add('hidden'); avatarImg.src = p.avatar; avatarImg.classList.remove('hidden'); }
+  else { avatarText.classList.remove('hidden'); avatarImg.classList.add('hidden'); }
+}
+
+/* ========== NAV & UI ========== */
+function updateNavVisibility() {
+  // Plateforme 100% gratuite : Feed / Profil / Upload sont toujours visibles pour tout le monde.
+  // Seul l'onglet Admin reste reserve exclusivement au mode developpeur.
+  const adminTab = document.getElementById('nav-admin');
+  const isDev = localStorage.getItem('beubeuland_devmode') === 'true';
+  if (adminTab) {
+    if (isDev) adminTab.classList.remove('hidden');
+    else adminTab.classList.add('hidden');
+  }
+}
+
+function showSection(section) {
+  document.querySelectorAll('.section').forEach(el => {
+    el.classList.remove('active');
+  });
+
+  const target = document.getElementById('section-' + section);
+  if (target) {
+    target.classList.add('active');
+  }
+
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  const navBtn = document.getElementById('nav-' + section);
+  if (navBtn) navBtn.classList.add('active');
+
+  if (section === 'feed') loadVideos();
+  if (section === 'upload') updateUploadCount();
+  if (section === 'admin') {
+    const isDev = localStorage.getItem('beubeuland_devmode') === 'true';
+    if (!isDev) { showSection('feed'); return; } // securite : jamais accessible hors mode developpeur
+    updateAdminStats();
+    adminShowTab('upload');
+  }
+}
+
+/* ========== PROFILE EDIT ========== */
+function openProfileEdit() {
+  const p = getProfile();
+  document.getElementById('edit-name').value = p.name === 'Beubeuland' ? '' : p.name;
+  document.getElementById('edit-bio').value = p.bio === 'demo@beubeuland.com' ? '' : p.bio;
+  document.getElementById('profile-edit-modal').classList.add('visible');
+}
+function closeProfileEdit() { document.getElementById('profile-edit-modal').classList.remove('visible'); }
+function previewAvatar(input) {
+  if (!input.files.length) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('avatar-preview');
+    preview.querySelector('img').src = e.target.result;
+    preview.classList.remove('hidden');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+function saveProfile() {
+  const name = document.getElementById('edit-name').value.trim() || 'Beubeuland';
+  const bio = document.getElementById('edit-bio').value.trim() || 'demo@beubeuland.com';
+  const avatarInput = document.getElementById('edit-avatar');
+  if (avatarInput.files.length) {
+    const reader = new FileReader();
+    reader.onload = (e) => { saveProfileData({ name, bio, avatar: e.target.result }); closeProfileEdit(); };
+    reader.onerror = () => { saveProfileData({ name, bio }); closeProfileEdit(); };
+    reader.readAsDataURL(avatarInput.files[0]);
+  } else { saveProfileData({ name, bio }); closeProfileEdit(); }
+}
+
+/* ========== FORMAT ========== */
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+/* ========== VIDEOS ========== */
+async function loadVideos() {
+  const feed = document.getElementById('tiktok-feed');
+  feed.innerHTML = '';
+  currentObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  currentObjectUrls = [];
+  if (feedObserver) feedObserver.disconnect();
+
+  let videos = [];
+  try { videos = await getVideos(); }
+  catch (err) {
+    feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Erreur de chargement</div>';
+    return;
+  }
+
+  if (videos.length === 0) {
+    feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Aucune video pour le moment</div>';
+    return;
+  }
+
+  const visibleVideos = videos;
+
+  for (const video of visibleVideos) {
+    const likes = await getLikesForVideo(video.id);
+    const userLiked = await hasUserLiked(video.id);
+    const likeCount = likes.length;
+    const comments = await getCommentsForVideo(video.id);
+    const commentCount = comments.length;
+
+    const slide = document.createElement('div');
+    slide.className = 'video-slide';
+
+    const videoEl = document.createElement('video');
+    videoEl.className = 'video-player';
+    videoEl.loop = true;
+    videoEl.playsInline = true;
+    videoEl.preload = 'metadata';
+    videoEl.muted = true;
+    videoEl.volume = 0.8;
+    videoEl.setAttribute('playsinline', '');
+    videoEl.setAttribute('webkit-playsinline', '');
+
+    videoEl.dataset.videoId = video.id;
+    videoEl.dataset.hasFileData = (video.fileData && video.fileData.byteLength > 0) ? 'true' : 'false';
+    videoEl.dataset.fileType = video.fileType || 'video/mp4';
+
+    const shouldLoadImmediately = visibleVideos.indexOf(video) < 2;
+
+    if (video.fileData && video.fileData.byteLength > 0) {
+      if (shouldLoadImmediately) {
+        try {
+          const blob = new Blob([video.fileData], { type: video.fileType || 'video/mp4' });
+          const url = URL.createObjectURL(blob);
+          currentObjectUrls.push(url);
+          videoEl.src = url;
+          videoEl.dataset.blobUrl = url;
+        } catch (e) {
+          console.error('Erreur blob:', e);
+          videoEl.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+        }
+      } else {
+        videoEl.dataset.fileData = 'pending';
+        videoEl.src = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAACKBtZGF0AAAC";
+      }
+    } else {
+      videoEl.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+    }
+
+    const loader = document.createElement('div');
+    loader.className = 'video-loader';
+    loader.innerHTML = '<div class="spinner"></div>';
+    const bigPlay = document.createElement('div');
+    bigPlay.className = 'big-play-btn';
+    bigPlay.innerHTML = '<i class="fas fa-play"></i>';
+    const controls = document.createElement('div');
+    controls.className = 'video-controls';
+    controls.innerHTML = '<div class="progress-bar-container" id="prog-' + video.id + '"><div class="progress-bar-fill" id="fill-' + video.id + '"></div></div><div class="controls-row"><button id="play-' + video.id + '" title="Play/Pause"><i class="fas fa-pause"></i></button><button id="back-' + video.id + '" title="-10s"><i class="fas fa-undo"></i></button><button id="fwd-' + video.id + '" title="+10s"><i class="fas fa-redo"></i></button><div class="time-display" id="time-' + video.id + '">0:00 / 0:00</div><div style="flex:1"></div><button class="volume-btn" id="vol-' + video.id + '" title="Volume"><i class="fas fa-volume-up"></i><div class="volume-slider"><input type="range" min="0" max="100" value="80" id="vol-range-' + video.id + '"></div></button><button id="fullscreen-' + video.id + '" title="Plein ecran"><i class="fas fa-expand"></i></button></div>';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'video-overlay';
+    const info = document.createElement('div');
+    info.className = 'video-info';
+    info.innerHTML = '<div class="font-bold text-base leading-tight">' + escapeHtml(video.title) + '</div><div class="text-xs text-zinc-300 mt-0.5 leading-tight">' + escapeHtml(video.description || '') + '</div><div class="text-[10px] text-emerald-400 mt-1">@' + escapeHtml(video.authorName || 'Beubeuland') + '</div>';
+
+    const likeClass = userLiked ? 'liked' : '';
+    const actions = document.createElement('div');
+    actions.className = 'video-actions-right';
+    actions.innerHTML = '<button onclick="handleLike(this, ' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5 ' + likeClass + '" id="like-btn-' + video.id + '"><i class="fas fa-heart text-2xl"></i><span class="text-[10px]" id="like-count-' + video.id + '">' + likeCount + '</span></button><button onclick="openCommentModal(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-comment text-2xl"></i><span class="text-[10px]" id="comment-count-' + video.id + '">' + commentCount + '</span></button><button onclick="shareVideo(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-share text-2xl"></i></button>';
+
+    const videoWrapper = document.createElement('div');
+    videoWrapper.className = 'video-wrapper';
+    videoWrapper.appendChild(videoEl);
+    videoWrapper.appendChild(overlay);
+    videoWrapper.appendChild(info);
+    videoWrapper.appendChild(actions);
+    videoWrapper.appendChild(loader);
+    videoWrapper.appendChild(bigPlay);
+    slide.appendChild(videoWrapper);
+    slide.appendChild(controls);
+    feed.appendChild(slide);
+    setupVideoControls(videoEl, video.id, loader, bigPlay);
+  }
+
+  setupAutoplayObserver();
+
+  setTimeout(function() {
+    const firstVideo = document.querySelector('.video-slide video');
+    if (firstVideo && firstVideo.dataset.fileData === 'pending') {
+      loadVideoBlob(firstVideo);
+    }
+  }, 100);
+}
+
+async function handleLike(btn, videoId) {
+  const isLiked = await toggleLike(videoId);
+  const countEl = document.getElementById('like-count-' + videoId);
+  const likes = await getLikesForVideo(videoId);
+  if (countEl) countEl.textContent = likes.length;
+  if (isLiked) btn.classList.add('liked');
+  else btn.classList.remove('liked');
+}
+
+/* ========== CONTROLS ========== */
+function setupVideoControls(video, id, loader, bigPlay) {
+  video.addEventListener('error', () => {
+    console.warn('Erreur chargement video, fallback...');
+    loader.classList.remove('visible');
+    bigPlay.classList.add('visible');
+    bigPlay.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+    bigPlay.title = 'Cliquez pour reessayer';
+    bigPlay.onclick = function() {
+      video.load();
+      video.play().catch(()=>{});
+      bigPlay.innerHTML = '<i class="fas fa-play"></i>';
+      bigPlay.onclick = null;
+    };
+  });
+
+  video.addEventListener('stalled', () => { loader.classList.add('visible'); });
+  video.addEventListener('suspend', () => { loader.classList.add('visible'); });
+
+  const playBtn = document.getElementById('play-' + id);
+  const backBtn = document.getElementById('back-' + id);
+  const fwdBtn = document.getElementById('fwd-' + id);
+  const progContainer = document.getElementById('prog-' + id);
+  const progFill = document.getElementById('fill-' + id);
+  const timeDisplay = document.getElementById('time-' + id);
+  const volBtn = document.getElementById('vol-' + id);
+  const volRange = document.getElementById('vol-range-' + id);
+  if (!playBtn || !video) return;
+
+  video.addEventListener('waiting', () => loader.classList.add('visible'));
+  video.addEventListener('playing', () => loader.classList.remove('visible'));
+  video.addEventListener('canplay', () => loader.classList.remove('visible'));
+  video.addEventListener('canplaythrough', () => loader.classList.remove('visible'));
+  video.addEventListener('loadeddata', () => loader.classList.remove('visible'));
+
+  function togglePlay() {
+    if (video.paused) {
+      if (video.muted) { video.muted = false; }
+      video.play().catch(function(err) {
+        if (err && err.name === 'NotAllowedError') {
+          video.muted = true;
+          video.play().catch(()=>{});
+        }
+      });
+    } else {
+      video.pause();
+    }
+  }
+  playBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePlay(); });
+  video.addEventListener('play', () => { playBtn.innerHTML = '<i class="fas fa-pause"></i>'; bigPlay.classList.remove('visible'); bigPlay.innerHTML = '<i class="fas fa-pause"></i>'; });
+  video.addEventListener('pause', () => { playBtn.innerHTML = '<i class="fas fa-play"></i>'; bigPlay.classList.add('visible'); bigPlay.innerHTML = '<i class="fas fa-play"></i>'; });
+  video.addEventListener('click', () => { togglePlay(); });
+
+  if (backBtn) backBtn.addEventListener('click', (e) => { e.stopPropagation(); video.currentTime = Math.max(0, video.currentTime - 10); });
+  if (fwdBtn) fwdBtn.addEventListener('click', (e) => { e.stopPropagation(); video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); });
+
+  video.addEventListener('timeupdate', () => {
+    if (video.duration && isFinite(video.duration) && video.duration > 0) {
+      const pct = Math.max(0, Math.min(100, (video.currentTime / video.duration) * 100));
+      progFill.style.width = pct + '%';
+      timeDisplay.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration);
+    }
+  });
+
+  if (progContainer) {
+    progContainer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const rect = progContainer.getBoundingClientRect();
+      if (video.duration && isFinite(video.duration) && video.duration > 0) {
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        video.currentTime = pct * video.duration;
+      }
+    });
+  }
+
+  video.volume = 0.8;
+  if (volRange) volRange.addEventListener('input', (e) => { video.volume = e.target.value / 100; video.muted = false; updateVolumeIcon(video.volume, volBtn); });
+  if (volBtn) volBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    video.muted = !video.muted;
+    if (!video.muted && video.paused) { video.play().catch(()=>{}); }
+    updateVolumeIcon(video.muted ? 0 : video.volume, volBtn);
+  });
+
+  const fsBtn = document.getElementById('fullscreen-' + id);
+  if (fsBtn) {
+    fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(video); });
+  }
+
+  video.addEventListener('loadedmetadata', () => { timeDisplay.textContent = '0:00 / ' + formatTime(video.duration || 0); });
+}
+
+function updateVolumeIcon(vol, btn) {
+  if (!btn) return;
+  const icon = btn.querySelector('i');
+  if (!icon) return;
+  icon.className = vol === 0 ? 'fas fa-volume-mute' : (vol < 0.5 ? 'fas fa-volume-down' : 'fas fa-volume-up');
+}
+
+function toggleFullscreen(video) {
+  var slide = video.closest('.video-slide');
+  if (!slide) return;
+  if (slide.classList.contains('expanded')) {
+    slide.classList.remove('expanded');
+    updateFullscreenIcon(false);
+  } else {
+    document.querySelectorAll('.video-slide.expanded').forEach(function(s) { s.classList.remove('expanded'); });
+    slide.classList.add('expanded');
+    updateFullscreenIcon(true);
+  }
+}
+
+function updateFullscreenIcon(isExpanded) {
+  if (isExpanded === undefined) {
+    isExpanded = document.querySelector('.video-slide.expanded') !== null;
+  }
+  var btns = document.querySelectorAll('[id^="fullscreen-"]');
+  for (var i = 0; i < btns.length; i++) {
+    if (btns[i]) btns[i].innerHTML = isExpanded ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
+  }
+}
+
+function setupAutoplayObserver() {
+  const slides = document.querySelectorAll('.video-slide video');
+  if (!slides.length) return;
+  if (feedObserver) feedObserver.disconnect();
+
+  feedObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const vid = entry.target;
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        if (vid.dataset.fileData === 'pending' && vid.dataset.hasFileData === 'true') {
+          loadVideoBlob(vid);
+        }
+        // Des qu'un geste utilisateur a eu lieu une fois (n'importe ou sur l'app), le son sort
+        // automatiquement sans avoir besoin de retoucher chaque video individuellement.
+        if (userInteracted) vid.muted = false;
+        vid.play().catch((err) => {
+          if (err && err.name === 'NotAllowedError') {
+            vid.muted = true;
+            vid.play().catch(()=>{});
+          }
+        });
+      } else {
+        vid.pause();
+        vid.muted = true;
+      }
+    });
+  }, { threshold: [0.5] });
+
+  slides.forEach(vid => feedObserver.observe(vid));
+}
+
+// Capture le tout premier geste (tap/clic/touche) n'importe ou dans l'app pour debloquer le son
+// une bonne fois pour toutes, au lieu d'obliger a appuyer sur chaque video.
+function markUserInteracted() {
+  if (userInteracted) return;
+  userInteracted = true;
+  // Debloque immediatement le son de la video actuellement visible/en lecture, sans attendre
+  // qu'elle ressorte puis rerentre dans le viewport.
+  document.querySelectorAll('.video-slide video').forEach(vid => {
+    if (!vid.paused) {
+      vid.muted = false;
+      vid.play().catch(() => {});
+    }
+  });
+}
+['pointerdown', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, markUserInteracted, { once: true, passive: true });
+});
+
+async function loadVideoBlob(videoEl) {
+  const videoId = parseInt(videoEl.dataset.videoId);
+  if (!videoId) return;
+  try {
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    const video = videos.find(v => v.id === videoId);
+    if (video && video.fileData && video.fileData.byteLength > 0) {
+      const blob = new Blob([video.fileData], { type: videoEl.dataset.fileType || 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      currentObjectUrls.push(url);
+      videoEl.src = url;
+      videoEl.dataset.blobUrl = url;
+      videoEl.dataset.fileData = 'loaded';
+      videoEl.load();
+    }
+  } catch (e) {
+    console.error('Erreur lazy load:', e);
+  }
+}
+
+function escapeHtml(str) { if (str == null) return ''; const div = document.createElement('div'); div.textContent = String(str); return div.innerHTML; }
+function shareVideo(id) {
+  const url = 'https://beubeuland.com/video/' + id;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => alert('Lien copie !')).catch(() => alert(url));
+  } else {
+    alert(url);
+  }
+}
+
+/* ========== STATUT DU COMPTE (plateforme 100% gratuite) ========== */
+
+function updateProfileStatus() {
+  const status = document.getElementById('profile-status');
+  const exitBtn = document.getElementById('dev-exit-btn');
+  if (!status) return;
+  const isDev = localStorage.getItem('beubeuland_devmode') === 'true';
+  if (isDev) {
+    status.innerHTML = '<i class="fas fa-code"></i> <span>Mode Developpeur</span>';
+    status.className = 'mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900';
+    if (exitBtn) exitBtn.classList.remove('hidden');
+  } else {
+    status.innerHTML = '<i class="fas fa-check-circle"></i> <span>Compte gratuit</span>';
+    status.className = 'mt-5 px-5 py-1.5 bg-zinc-800 text-zinc-400 text-sm font-medium rounded-full flex items-center gap-2 border border-zinc-700';
+    if (exitBtn) exitBtn.classList.add('hidden');
+  }
+}
+
+/* ========== UPLOAD ========== */
+function updateUploadCount() {
+  const el = document.getElementById('upload-count');
+  if (el) el.innerText = uploadsToday;
+}
+
+function handleVideoUpload(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const maxBytes = 500 * 1024 * 1024;
+  if (file.size > maxBytes) { alert('Fichier trop volumineux (max 500MB)'); input.value = ''; return; }
+  if (!file.type.startsWith('video/')) { alert('Veuillez selectionner un fichier video'); input.value = ''; return; }
+  document.getElementById('upload-dropzone').classList.add('hidden');
+  document.getElementById('upload-form').classList.remove('hidden');
+}
+
+async function publishVideo() {
+  const title = document.getElementById('video-title').value.trim();
+  if (!title) { alert('Titre requis'); return; }
+  if (uploadsToday >= 3) { alert('Limite atteinte (3 videos/jour)'); return; }
+  const input = document.getElementById('upload-input');
+  const file = input.files[0];
+  if (!file) { alert('Aucun fichier selectionne'); return; }
+  const publishBtn = document.getElementById('publish-btn');
+  const progressEl = document.getElementById('upload-progress');
+  publishBtn.disabled = true;
+  publishBtn.textContent = 'Publication...';
+  progressEl.classList.add('visible');
+  progressEl.textContent = 'Lecture du fichier...';
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const profile = getProfile();
+    await saveVideo({
+      id: Date.now(),
+      title: title,
+      description: document.getElementById('video-desc').value,
+      fileData: arrayBuffer,
+      fileType: file.type,
+      fileName: file.name,
+      authorId: getUserId(),
+      authorName: profile.name,
+      created_at: new Date().toISOString()
+    });
+    uploadsToday++;
+    localStorage.setItem('beubeuland_uploads_today', String(uploadsToday));
+    alert('✅ Video publiee !');
+    document.getElementById('upload-form').classList.add('hidden');
+    document.getElementById('upload-dropzone').classList.remove('hidden');
+    document.getElementById('video-title').value = '';
+    document.getElementById('video-desc').value = '';
+    input.value = '';
+    showSection('feed');
+  } catch (err) {
+    console.error('Erreur :', err);
+    alert('❌ Erreur lors de la publication: ' + (err.message || 'Inconnue'));
+  } finally {
+    publishBtn.disabled = false;
+    publishBtn.textContent = 'Publier la video';
+    progressEl.classList.remove('visible');
+  }
+}
+
+/* ========== MODE DEVELOPPEUR ========== */
+function initDevMode() {
+  if (localStorage.getItem('beubeuland_devmode') === 'true') {
+    activateDevMode(false);
+  }
+}
+
+function activateDevMode(showAlert) {
+  localStorage.setItem('beubeuland_devmode', 'true');
+  updateNavVisibility();
+  updateProfileStatus();
+  if (showAlert) showDevToast('🔓 Mode Developpeur active');
+  loadVideos();
+}
+
+function deactivateDevMode() {
+  localStorage.setItem('beubeuland_devmode', 'false');
+  updateNavVisibility();
+  updateProfileStatus();
+  loadVideos();
+  showDevToast('🔒 Mode Developpeur desactive');
+}
+
+function showDevToast(message) {
+  const old = document.getElementById('dev-toast');
+  if (old) old.remove();
+  const toast = document.createElement('div');
+  toast.id = 'dev-toast';
+  toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(16,185,129,0.95);color:#fff;padding:14px 28px;border-radius:16px;font-size:14px;font-weight:600;z-index:9999;backdrop-filter:blur(8px);box-shadow:0 8px 32px rgba(0,0,0,0.4);pointer-events:none;white-space:nowrap;animation:devToastIn 0.3s ease;';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.animation = 'devToastOut 0.3s ease forwards'; }, 2000);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2500);
+}
+
+/* ========== DEV CODE MODAL ========== */
+function openDevCodeModal() {
+  document.getElementById('dev-code-modal').style.display = 'flex';
+  document.getElementById('dev-code-input').value = '';
+  document.getElementById('dev-code-error').style.display = 'none';
+  setTimeout(() => document.getElementById('dev-code-input').focus(), 100);
+}
+
+function closeDevCodeModal() {
+  document.getElementById('dev-code-modal').style.display = 'none';
+}
+
+function checkDevCode() {
+  const input = document.getElementById('dev-code-input').value.trim();
+  if (input === DEV_CODE) {
+    closeDevCodeModal();
+    activateDevMode(true);
+  } else {
+    document.getElementById('dev-code-error').style.display = 'block';
+    document.getElementById('dev-code-input').value = '';
+    document.getElementById('dev-code-input').focus();
+  }
+}
+
+document.getElementById('dev-code-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeDevCodeModal();
+});
+
+// Exit expanded video mode on ESC key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var expanded = document.querySelector('.video-slide.expanded');
+    if (expanded) {
+      expanded.classList.remove('expanded');
+      updateFullscreenIcon(false);
+    }
+  }
+});
+
+/* ========== INIT ========== */
+async function init() {
+  await loadUserProfile();
+  renderProfile();
+  initDevMode();
+  updateNavVisibility();
+
+  // Ensure only feed section is active on init
+  document.querySelectorAll('.section').forEach(el => {
+    el.classList.remove('active');
+  });
+
+  const feedSection = document.getElementById('section-feed');
+  feedSection.classList.add('active');
+  document.getElementById('nav-feed').classList.add('active');
+  updateProfileStatus();
+
+  await cleanupCorruptedVideos();
+  loadVideos();
+}
+
+async function cleanupCorruptedVideos() {
+  try {
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    let cleaned = 0;
+    for (const v of videos) {
+      const hasValidData = (v.fileData && v.fileData.byteLength > 0);
+      if (!hasValidData && !v.isExternal) {
+        await deleteFromStore(STORE_VIDEOS, v.id);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) console.log(cleaned + ' video(s) corrompue(s) nettoyee(s)');
+  } catch (e) {
+    console.error('Erreur nettoyage:', e);
+  }
+}
+
+/* ========== ADMIN PANEL (mode developpeur uniquement) ========== */
+
+function adminShowTab(tab) {
+  document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+  const target = document.getElementById('admin-' + tab);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('#section-admin .admin-tab').forEach(el => el.classList.remove('active'));
+  const tabBtn = document.getElementById('atab-' + tab);
+  if (tabBtn) tabBtn.classList.add('active');
+  if (tab === 'users') loadUsers();
+  if (tab === 'videos') loadAllVideos();
+  if (tab === 'warnings') loadWarnings();
+  if (tab === 'upload') updateAdminStats();
+}
+
+async function updateAdminStats() {
+  try {
+    const users = await getAllFromStore(STORE_USERS);
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    const warnings = await getAllFromStore(STORE_WARNINGS);
+    const elUsers = document.getElementById('stat-users');
+    const elVideos = document.getElementById('stat-videos');
+    const elWarnings = document.getElementById('stat-warnings');
+    if (elUsers) elUsers.textContent = users.length;
+    if (elVideos) elVideos.textContent = videos.length;
+    if (elWarnings) elWarnings.textContent = warnings.length;
+  } catch (err) {
+    console.error('Erreur stats admin:', err);
+  }
+}
+
+function handleAdminFile(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  const maxBytes = 500 * 1024 * 1024;
+  if (file.size > maxBytes) { alert('Fichier trop volumineux (max 500MB)'); input.value = ''; return; }
+  if (!file.type.startsWith('video/')) { alert('Veuillez selectionner un fichier video'); input.value = ''; return; }
+  document.getElementById('admin-dropzone').classList.add('hidden');
+  document.getElementById('admin-form').classList.remove('hidden');
+  const titleInput = document.getElementById('admin-title');
+  if (titleInput && !titleInput.value) titleInput.value = file.name.split('.')[0];
+}
+
+async function publishAdminVideo() {
+  const title = document.getElementById('admin-title').value.trim();
+  if (!title) { alert('Titre requis'); return; }
+  const fileInput = document.getElementById('admin-file');
+  const file = fileInput.files[0];
+  if (!file) { alert('Aucun fichier selectionne'); return; }
+  const btn = document.getElementById('admin-publish-btn');
+  const progressEl = document.getElementById('admin-progress');
+  btn.disabled = true; btn.textContent = 'Publication en cours...';
+  progressEl.style.display = 'block'; progressEl.textContent = 'Lecture du fichier...';
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    progressEl.textContent = 'Enregistrement...';
+
+    await saveVideo({
+      id: Date.now(),
+      title: title,
+      description: document.getElementById('admin-desc').value,
+      fileData: arrayBuffer,
+      fileType: file.type,
+      fileName: file.name,
+      authorId: 'admin',
+      authorName: 'ines_dz🇲🇦🫦',
+      isAdmin: true,
+      created_at: new Date().toISOString()
+    });
+    alert('✅ Video publiee avec succes !');
+    document.getElementById('admin-form').classList.add('hidden');
+    document.getElementById('admin-dropzone').classList.remove('hidden');
+    document.getElementById('admin-title').value = '';
+    document.getElementById('admin-desc').value = '';
+    fileInput.value = '';
+    btn.disabled = false; btn.textContent = 'Publier sur le feed';
+    progressEl.style.display = 'none';
+    updateAdminStats();
+  } catch (err) {
+    console.error('Erreur :', err);
+    alert('❌ Erreur lors de la publication: ' + (err.message || 'Inconnue'));
+    btn.disabled = false; btn.textContent = 'Publier sur le feed';
+    progressEl.style.display = 'none';
+  }
+}
+
+async function loadUsers() {
+  const container = document.getElementById('users-list');
+  if (!container) return;
+
+  try {
+    const users = await getAllFromStore(STORE_USERS);
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    const warnings = await getAllFromStore(STORE_WARNINGS);
+
+    if (users.length === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i>Aucun utilisateur inscrit</div>';
+      return;
+    }
+
+    let html = '<table class="data-table"><thead><tr>';
+    html += '<th>Utilisateur</th><th>Videos</th><th>Avert.</th><th>Inscrit le</th><th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
+    users.forEach(u => {
+      const userVideos = videos.filter(v => v.authorId === u.userId);
+      const userWarnings = warnings.filter(w => w.userId === u.userId);
+      const avatarContent = u.avatar ? `<img src="${escapeHtml(u.avatar)}" alt="">` : (u.name || 'B').charAt(0).toUpperCase();
+
+      html += `<tr>
+        <td>
+          <div class="user-cell">
+            <div class="user-avatar">${avatarContent}</div>
+            <div class="user-info">
+              <span class="user-name">${escapeHtml(u.name || 'Anonyme')}</span>
+              <span class="user-id">${u.userId}</span>
+            </div>
+          </div>
+        </td>
+        <td>${userVideos.length}</td>
+        <td>${userWarnings.length}</td>
+        <td>${u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('fr-FR') : '-'}</td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="viewUserVideos('${u.userId}', '${escapeHtml(u.name || 'Anonyme')}')" class="btn-icon btn-view" title="Voir les videos"><i class="fas fa-eye"></i></button>
+            <button onclick="openWarningModal('${u.userId}', '${escapeHtml(u.name || 'Anonyme')}')" class="btn-icon btn-warn" title="Avertir"><i class="fas fa-exclamation-triangle"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = '<div class="table-scroll-wrapper">' + html + '</div>';
+  } catch (err) {
+    console.error('Erreur chargement utilisateurs:', err);
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i>Erreur de chargement</div>';
+  }
+}
+
+async function loadAllVideos() {
+  const container = document.getElementById('all-videos-list');
+  if (!container) return;
+
+  try {
+    const videos = await getVideos();
+    const users = await getAllFromStore(STORE_USERS);
+
+    if (videos.length === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-video"></i>Aucune video publiee</div>';
+      return;
+    }
+
+    let html = '<table class="data-table"><thead><tr>';
+    html += '<th>Video</th><th>Auteur</th><th>Date</th><th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
+    videos.forEach(v => {
+      const author = users.find(u => u.userId === v.authorId);
+      const authorName = v.authorName || (author ? author.name : 'Inconnu');
+      const isAdmin = v.isAdmin || v.authorId === 'admin';
+      const authorBadge = isAdmin ? '<span class="badge badge-admin" style="margin-left:6px;">ines_dz🇲🇦🫦</span>' : '';
+
+      html += `<tr>
+        <td>
+          <div style="font-weight: 600; color: #fafafa;">${escapeHtml(v.title)}</div>
+          <div style="font-size: 11px; color: #71717a; margin-top: 2px;">${escapeHtml(v.description || '').substring(0, 60)}${(v.description || '').length > 60 ? '...' : ''}</div>
+        </td>
+        <td>
+          <span style="color: ${isAdmin ? '#60a5fa' : '#d4d4d8'}; font-weight: 500;">@${escapeHtml(authorName)}</span>
+          ${authorBadge}
+        </td>
+        <td style="white-space: nowrap;">${v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '-'}</td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="previewVideo(${v.id})" class="btn-icon btn-view" title="Voir la video"><i class="fas fa-play"></i></button>
+            ${v.authorId !== 'admin' ? `<button onclick="openWarningModal('${v.authorId}', '${escapeHtml(authorName)}')" class="btn-icon btn-warn" title="Avertir l'auteur"><i class="fas fa-exclamation-triangle"></i></button>` : ''}
+            <button onclick="deleteAdminVideo(${v.id})" class="btn-icon btn-delete" title="Supprimer"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = '<div class="table-scroll-wrapper">' + html + '</div>';
+  } catch (err) {
+    console.error('Erreur chargement videos:', err);
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i>Erreur de chargement</div>';
+  }
+}
+
+async function deleteAdminVideo(id) {
+  if (!confirm('Supprimer cette video ? Cette action est irreversible.')) return;
+  try {
+    await deleteVideo(id);
+    loadAllVideos();
+    updateAdminStats();
+  } catch (err) {
+    console.error('Erreur suppression:', err);
+    alert('❌ Erreur lors de la suppression: ' + (err.message || 'Inconnue'));
+  }
+}
+
+async function viewUserVideos(userId, userName) {
+  try {
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    const userVideos = videos.filter(v => v.authorId === userId).sort((a, b) => b.id - a.id);
+
+    if (userVideos.length === 0) {
+      alert(userName + " n'a publie aucune video.");
+      return;
+    }
+
+    adminShowTab('videos');
+    const container = document.getElementById('all-videos-list');
+
+    let html = `<div style="padding: 14px 16px; border-bottom: 1px solid #27272a; display: flex; align-items: center; gap: 10px;">`;
+    html += `<button onclick="loadAllVideos()" class="btn-icon btn-view" title="Retour"><i class="fas fa-arrow-left"></i></button>`;
+    html += `<span style="font-weight: 700; font-size: 13px;">Videos de ${escapeHtml(userName)}</span>`;
+    html += `<span style="font-size: 11px; color: #71717a;">(${userVideos.length})</span>`;
+    html += `</div>`;
+    html += '<table class="data-table"><thead><tr><th>Video</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+
+    userVideos.forEach(v => {
+      html += `<tr>
+        <td>
+          <div style="font-weight: 600;">${escapeHtml(v.title)}</div>
+          <div style="font-size: 11px; color: #71717a; margin-top: 2px;">${escapeHtml(v.description || '').substring(0, 60)}${(v.description || '').length > 60 ? '...' : ''}</div>
+        </td>
+        <td style="white-space: nowrap;">${v.created_at ? new Date(v.created_at).toLocaleDateString('fr-FR') : '-'}</td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="previewVideo(${v.id})" class="btn-icon btn-view" title="Voir la video"><i class="fas fa-play"></i></button>
+            <button onclick="openWarningModal('${v.authorId}', '${escapeHtml(userName)}')" class="btn-icon btn-warn" title="Avertir"><i class="fas fa-exclamation-triangle"></i></button>
+            <button onclick="deleteAdminVideo(${v.id})" class="btn-icon btn-delete" title="Supprimer"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Erreur vue utilisateur:', err);
+    alert('❌ Erreur de chargement');
+  }
+}
+
+function openWarningModal(userId, userName) {
+  document.getElementById('warning-target-id').value = userId;
+  document.getElementById('warning-target-name').textContent = userName;
+  document.getElementById('warning-message').value = '';
+  document.getElementById('warning-modal').classList.add('visible');
+}
+
+function closeWarningModal() {
+  document.getElementById('warning-modal').classList.remove('visible');
+}
+
+async function sendWarning() {
+  const userId = document.getElementById('warning-target-id').value;
+  const message = document.getElementById('warning-message').value.trim();
+  if (!message) { alert('Message requis'); return; }
+  try {
+    await saveToStore(STORE_WARNINGS, {
+      userId: userId, message: message, seen: false,
+      sentAt: new Date().toISOString()
+    });
+    alert('✅ Avertissement envoye !');
+    closeWarningModal();
+    updateAdminStats();
+    const warningsTab = document.getElementById('admin-warnings');
+    if (warningsTab && !warningsTab.classList.contains('hidden')) {
+      loadWarnings();
+    }
+  } catch (err) {
+    console.error('Erreur envoi avertissement:', err);
+    alert('❌ Erreur lors de l\'envoi: ' + (err.message || 'Inconnue'));
+  }
+}
+
+async function loadWarnings() {
+  const container = document.getElementById('warnings-list');
+  if (!container) return;
+
+  try {
+    const warnings = await getAllFromStore(STORE_WARNINGS);
+    const users = await getAllFromStore(STORE_USERS);
+
+    if (warnings.length === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>Aucun avertissement envoye</div>';
+      return;
+    }
+
+    warnings.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+
+    let html = '';
+    warnings.forEach(w => {
+      const user = users.find(u => u.userId === w.userId);
+      const userName = user ? user.name : w.userId;
+      const statusClass = w.seen ? 'seen' : 'unseen';
+      const statusText = w.seen ? 'Vu par l\'utilisateur' : 'Non vu';
+
+      html += `<div class="warning-item">
+        <div class="warning-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="warning-user">${escapeHtml(userName)}</span>
+            <span class="warning-status ${statusClass}">${statusText}</span>
+          </div>
+          <span class="warning-date">${w.sentAt ? new Date(w.sentAt).toLocaleDateString('fr-FR') + ' a ' + new Date(w.sentAt).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : '-'}</span>
+        </div>
+        <div class="warning-msg">${escapeHtml(w.message)}</div>
+      </div>`;
+    });
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Erreur chargement avertissements:', err);
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i>Erreur de chargement</div>';
+  }
+}
+
+async function previewVideo(videoId) {
+  try {
+    const videos = await getAllFromStore(STORE_VIDEOS);
+    const video = videos.find(v => v.id === videoId);
+    if (!video) { alert('Video introuvable'); return; }
+
+    const videoEl = document.getElementById('preview-video');
+    if (!videoEl) { alert('Erreur interne'); return; }
+
+    if (videoEl.dataset.objectUrl) {
+      URL.revokeObjectURL(videoEl.dataset.objectUrl);
+    }
+
+    if (video.fileData && video.fileData.byteLength > 0) {
+      try {
+        const blob = new Blob([video.fileData], { type: video.fileType || 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        videoEl.dataset.objectUrl = url;
+        videoEl.src = url;
+      } catch (e) {
+        console.error('Erreur blob:', e);
+        alert('❌ Impossible de lire la video');
+        return;
+      }
+    } else {
+      alert('❌ Aucune donnee video');
+      return;
+    }
+
+    document.getElementById('video-preview-modal').classList.add('visible');
+    videoEl.play().catch(() => {});
+  } catch (err) {
+    console.error('Erreur preview:', err);
+    alert('❌ Erreur de lecture');
+  }
+}
+
+function closeVideoPreview() {
+  const videoEl = document.getElementById('preview-video');
+  if (videoEl) {
+    videoEl.pause();
+    if (videoEl.dataset.objectUrl) {
+      URL.revokeObjectURL(videoEl.dataset.objectUrl);
+      delete videoEl.dataset.objectUrl;
+    }
+    videoEl.src = '';
+  }
+  document.getElementById('video-preview-modal').classList.remove('visible');
+}
+
+window.onload = init;
+</script>
+
+</body>
+</html>
