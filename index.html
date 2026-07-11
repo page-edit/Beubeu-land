@@ -848,6 +848,11 @@ body {
 <script>
 const DEV_CODE = 'sil55201';
 
+// Feed partage : toutes les videos sont lues/ecrites via ce backend + GitHub,
+// pour que TOUT LE MONDE voie les memes videos (plus de stockage local).
+const BACKEND_URL = 'https://beubeu-feed.onrender.com/api';
+const VIDEOS_JSON_URL = 'https://raw.githubusercontent.com/page-edit/Beubeu-land/main/videos.json';
+
 const DB_NAME = 'beubeuland_db';
 const DB_VERSION = 4;
 const STORE_VIDEOS = 'videos';
@@ -916,15 +921,21 @@ async function deleteFromStore(store, key) {
   });
 }
 
-async function saveVideo(video) { await saveToStore(STORE_VIDEOS, video); }
-
+/* ========== VIDEOS (feed partage, plus de stockage local) ========== */
+// Toutes les videos vivent sur videos.json (GitHub) + Cloudflare R2, via le backend.
+// getVideos() est desormais un simple fetch reseau, identique pour tout le monde.
 async function getVideos() {
-  const videos = await getAllFromStore(STORE_VIDEOS);
-  videos.sort((a, b) => b.id - a.id);
-  return videos;
+  try {
+    const res = await fetch(VIDEOS_JSON_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('Erreur reseau (' + res.status + ')');
+    const videos = await res.json();
+    videos.sort((a, b) => b.id - a.id);
+    return videos;
+  } catch (e) {
+    console.error('Erreur chargement feed partage:', e);
+    return null; // null = erreur reseau distincte de "aucune video"
+  }
 }
-
-async function deleteVideo(id) { await deleteFromStore(STORE_VIDEOS, id); }
 
 /* ========== USER ========== */
 function getUserId() {
@@ -1101,7 +1112,6 @@ async function submitComment() {
 
 /* ========== STATE ========== */
 let uploadsToday = 0;
-let currentObjectUrls = [];
 let feedObserver = null;
 let userProfile = {};
 let userInteracted = false; // true des que l'utilisateur a touche l'ecran une seule fois, permet au son de sortir automatiquement ensuite
@@ -1209,14 +1219,12 @@ function formatTime(seconds) {
 async function loadVideos() {
   const feed = document.getElementById('tiktok-feed');
   feed.innerHTML = '';
-  currentObjectUrls.forEach(url => URL.revokeObjectURL(url));
-  currentObjectUrls = [];
   if (feedObserver) feedObserver.disconnect();
 
-  let videos = [];
-  try { videos = await getVideos(); }
-  catch (err) {
-    feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Erreur de chargement</div>';
+  const videos = await getVideos();
+
+  if (videos === null) {
+    feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Erreur de chargement du feed<br><span class="text-xs">Verifie ta connexion et reessaie</span></div>';
     return;
   }
 
@@ -1246,32 +1254,11 @@ async function loadVideos() {
     videoEl.volume = 0.8;
     videoEl.setAttribute('playsinline', '');
     videoEl.setAttribute('webkit-playsinline', '');
-
     videoEl.dataset.videoId = video.id;
-    videoEl.dataset.hasFileData = (video.fileData && video.fileData.byteLength > 0) ? 'true' : 'false';
-    videoEl.dataset.fileType = video.fileType || 'video/mp4';
 
-    const shouldLoadImmediately = visibleVideos.indexOf(video) < 2;
-
-    if (video.fileData && video.fileData.byteLength > 0) {
-      if (shouldLoadImmediately) {
-        try {
-          const blob = new Blob([video.fileData], { type: video.fileType || 'video/mp4' });
-          const url = URL.createObjectURL(blob);
-          currentObjectUrls.push(url);
-          videoEl.src = url;
-          videoEl.dataset.blobUrl = url;
-        } catch (e) {
-          console.error('Erreur blob:', e);
-          videoEl.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-        }
-      } else {
-        videoEl.dataset.fileData = 'pending';
-        videoEl.src = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAACKBtZGF0AAAC";
-      }
-    } else {
-      videoEl.src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-    }
+    // Chaque video est hebergee publiquement (Cloudflare R2) : le navigateur
+    // la streame directement depuis son URL, plus besoin de Blob/IndexedDB.
+    videoEl.src = video.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
     const loader = document.createElement('div');
     loader.className = 'video-loader';
@@ -1309,13 +1296,6 @@ async function loadVideos() {
   }
 
   setupAutoplayObserver();
-
-  setTimeout(function() {
-    const firstVideo = document.querySelector('.video-slide video');
-    if (firstVideo && firstVideo.dataset.fileData === 'pending') {
-      loadVideoBlob(firstVideo);
-    }
-  }, 100);
 }
 
 async function handleLike(btn, videoId) {
@@ -1458,9 +1438,6 @@ function setupAutoplayObserver() {
     entries.forEach(entry => {
       const vid = entry.target;
       if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-        if (vid.dataset.fileData === 'pending' && vid.dataset.hasFileData === 'true') {
-          loadVideoBlob(vid);
-        }
         // Des qu'un geste utilisateur a eu lieu une fois (n'importe ou sur l'app), le son sort
         // automatiquement sans avoir besoin de retoucher chaque video individuellement.
         if (userInteracted) vid.muted = false;
@@ -1497,26 +1474,6 @@ function markUserInteracted() {
 ['pointerdown', 'touchstart', 'keydown'].forEach(evt => {
   document.addEventListener(evt, markUserInteracted, { once: true, passive: true });
 });
-
-async function loadVideoBlob(videoEl) {
-  const videoId = parseInt(videoEl.dataset.videoId);
-  if (!videoId) return;
-  try {
-    const videos = await getAllFromStore(STORE_VIDEOS);
-    const video = videos.find(v => v.id === videoId);
-    if (video && video.fileData && video.fileData.byteLength > 0) {
-      const blob = new Blob([video.fileData], { type: videoEl.dataset.fileType || 'video/mp4' });
-      const url = URL.createObjectURL(blob);
-      currentObjectUrls.push(url);
-      videoEl.src = url;
-      videoEl.dataset.blobUrl = url;
-      videoEl.dataset.fileData = 'loaded';
-      videoEl.load();
-    }
-  } catch (e) {
-    console.error('Erreur lazy load:', e);
-  }
-}
 
 function escapeHtml(str) { if (str == null) return ''; const div = document.createElement('div'); div.textContent = String(str); return div.innerHTML; }
 function shareVideo(id) {
@@ -1574,25 +1531,24 @@ async function publishVideo() {
   publishBtn.disabled = true;
   publishBtn.textContent = 'Publication...';
   progressEl.classList.add('visible');
-  progressEl.textContent = 'Lecture du fichier...';
+  progressEl.textContent = 'Envoi de la video...';
 
   try {
-    const arrayBuffer = await file.arrayBuffer();
     const profile = getProfile();
-    await saveVideo({
-      id: Date.now(),
-      title: title,
-      description: document.getElementById('video-desc').value,
-      fileData: arrayBuffer,
-      fileType: file.type,
-      fileName: file.name,
-      authorId: getUserId(),
-      authorName: profile.name,
-      created_at: new Date().toISOString()
-    });
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('title', title);
+    formData.append('description', document.getElementById('video-desc').value);
+    formData.append('authorId', getUserId());
+    formData.append('authorName', profile.name);
+
+    const res = await fetch(BACKEND_URL + '/videos', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
+
     uploadsToday++;
     localStorage.setItem('beubeuland_uploads_today', String(uploadsToday));
-    alert('✅ Video publiee !');
+    alert('✅ Video publiee ! Elle sera visible pour tout le monde dans quelques secondes.');
     document.getElementById('upload-form').classList.add('hidden');
     document.getElementById('upload-dropzone').classList.remove('hidden');
     document.getElementById('video-title').value = '';
@@ -1700,25 +1656,7 @@ async function init() {
   document.getElementById('nav-feed').classList.add('active');
   updateProfileStatus();
 
-  await cleanupCorruptedVideos();
   loadVideos();
-}
-
-async function cleanupCorruptedVideos() {
-  try {
-    const videos = await getAllFromStore(STORE_VIDEOS);
-    let cleaned = 0;
-    for (const v of videos) {
-      const hasValidData = (v.fileData && v.fileData.byteLength > 0);
-      if (!hasValidData && !v.isExternal) {
-        await deleteFromStore(STORE_VIDEOS, v.id);
-        cleaned++;
-      }
-    }
-    if (cleaned > 0) console.log(cleaned + ' video(s) corrompue(s) nettoyee(s)');
-  } catch (e) {
-    console.error('Erreur nettoyage:', e);
-  }
 }
 
 /* ========== ADMIN PANEL (mode developpeur uniquement) ========== */
@@ -1739,13 +1677,13 @@ function adminShowTab(tab) {
 async function updateAdminStats() {
   try {
     const users = await getAllFromStore(STORE_USERS);
-    const videos = await getAllFromStore(STORE_VIDEOS);
+    const videos = await getVideos();
     const warnings = await getAllFromStore(STORE_WARNINGS);
     const elUsers = document.getElementById('stat-users');
     const elVideos = document.getElementById('stat-videos');
     const elWarnings = document.getElementById('stat-warnings');
     if (elUsers) elUsers.textContent = users.length;
-    if (elVideos) elVideos.textContent = videos.length;
+    if (elVideos) elVideos.textContent = videos === null ? '-' : videos.length;
     if (elWarnings) elWarnings.textContent = warnings.length;
   } catch (err) {
     console.error('Erreur stats admin:', err);
@@ -1773,25 +1711,22 @@ async function publishAdminVideo() {
   const btn = document.getElementById('admin-publish-btn');
   const progressEl = document.getElementById('admin-progress');
   btn.disabled = true; btn.textContent = 'Publication en cours...';
-  progressEl.style.display = 'block'; progressEl.textContent = 'Lecture du fichier...';
+  progressEl.style.display = 'block'; progressEl.textContent = 'Envoi de la video...';
 
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    progressEl.textContent = 'Enregistrement...';
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('title', title);
+    formData.append('description', document.getElementById('admin-desc').value);
+    formData.append('authorId', 'admin');
+    formData.append('authorName', 'ines_dz🇲🇦🫦');
+    formData.append('isAdmin', 'true');
 
-    await saveVideo({
-      id: Date.now(),
-      title: title,
-      description: document.getElementById('admin-desc').value,
-      fileData: arrayBuffer,
-      fileType: file.type,
-      fileName: file.name,
-      authorId: 'admin',
-      authorName: 'ines_dz🇲🇦🫦',
-      isAdmin: true,
-      created_at: new Date().toISOString()
-    });
-    alert('✅ Video publiee avec succes !');
+    const res = await fetch(BACKEND_URL + '/videos', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
+
+    alert('✅ Video publiee avec succes ! Visible pour tout le monde dans quelques secondes.');
     document.getElementById('admin-form').classList.add('hidden');
     document.getElementById('admin-dropzone').classList.remove('hidden');
     document.getElementById('admin-title').value = '';
@@ -1814,7 +1749,7 @@ async function loadUsers() {
 
   try {
     const users = await getAllFromStore(STORE_USERS);
-    const videos = await getAllFromStore(STORE_VIDEOS);
+    const videos = (await getVideos()) || [];
     const warnings = await getAllFromStore(STORE_WARNINGS);
 
     if (users.length === 0) {
@@ -1869,6 +1804,11 @@ async function loadAllVideos() {
     const videos = await getVideos();
     const users = await getAllFromStore(STORE_USERS);
 
+    if (videos === null) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i>Erreur de chargement du feed partage</div>';
+      return;
+    }
+
     if (videos.length === 0) {
       container.innerHTML = '<div class="empty-state"><i class="fas fa-video"></i>Aucune video publiee</div>';
       return;
@@ -1913,9 +1853,11 @@ async function loadAllVideos() {
 }
 
 async function deleteAdminVideo(id) {
-  if (!confirm('Supprimer cette video ? Cette action est irreversible.')) return;
+  if (!confirm('Supprimer cette video ? Cette action est irreversible pour tout le monde.')) return;
   try {
-    await deleteVideo(id);
+    const res = await fetch(BACKEND_URL + '/videos/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
     loadAllVideos();
     updateAdminStats();
   } catch (err) {
@@ -1926,7 +1868,8 @@ async function deleteAdminVideo(id) {
 
 async function viewUserVideos(userId, userName) {
   try {
-    const videos = await getAllFromStore(STORE_VIDEOS);
+    const videos = await getVideos();
+    if (videos === null) { alert('❌ Erreur de chargement du feed partage'); return; }
     const userVideos = videos.filter(v => v.authorId === userId).sort((a, b) => b.id - a.id);
 
     if (userVideos.length === 0) {
@@ -2045,32 +1988,16 @@ async function loadWarnings() {
 
 async function previewVideo(videoId) {
   try {
-    const videos = await getAllFromStore(STORE_VIDEOS);
+    const videos = await getVideos();
+    if (videos === null) { alert('❌ Erreur de chargement du feed partage'); return; }
     const video = videos.find(v => v.id === videoId);
     if (!video) { alert('Video introuvable'); return; }
 
     const videoEl = document.getElementById('preview-video');
     if (!videoEl) { alert('Erreur interne'); return; }
 
-    if (videoEl.dataset.objectUrl) {
-      URL.revokeObjectURL(videoEl.dataset.objectUrl);
-    }
-
-    if (video.fileData && video.fileData.byteLength > 0) {
-      try {
-        const blob = new Blob([video.fileData], { type: video.fileType || 'video/mp4' });
-        const url = URL.createObjectURL(blob);
-        videoEl.dataset.objectUrl = url;
-        videoEl.src = url;
-      } catch (e) {
-        console.error('Erreur blob:', e);
-        alert('❌ Impossible de lire la video');
-        return;
-      }
-    } else {
-      alert('❌ Aucune donnee video');
-      return;
-    }
+    if (!video.videoUrl) { alert('❌ Aucune donnee video'); return; }
+    videoEl.src = video.videoUrl;
 
     document.getElementById('video-preview-modal').classList.add('visible');
     videoEl.play().catch(() => {});
@@ -2084,10 +2011,6 @@ function closeVideoPreview() {
   const videoEl = document.getElementById('preview-video');
   if (videoEl) {
     videoEl.pause();
-    if (videoEl.dataset.objectUrl) {
-      URL.revokeObjectURL(videoEl.dataset.objectUrl);
-      delete videoEl.dataset.objectUrl;
-    }
     videoEl.src = '';
   }
   document.getElementById('video-preview-modal').classList.remove('visible');
