@@ -576,7 +576,6 @@ body {
   <div class="flex bg-zinc-900 rounded-3xl p-1 text-sm" id="nav-container">
     <button onclick="showSection('feed')" class="nav-tab flex-1 py-2 px-4 rounded-3xl active" id="nav-feed">Feed</button>
     <button onclick="showSection('profile')" class="nav-tab flex-1 py-2 px-4 rounded-3xl" id="nav-profile">Profil</button>
-    <button onclick="showSection('upload')" class="nav-tab flex-1 py-2 px-4 rounded-3xl" id="nav-upload">Upload</button>
     <button onclick="showSection('admin')" class="nav-tab flex-1 py-2 px-4 rounded-3xl hidden" id="nav-admin">Admin</button>
   </div>
 </div>
@@ -622,32 +621,9 @@ body {
         <button id="dev-exit-btn" onclick="deactivateDevMode()" class="hidden mt-2 text-xs text-zinc-500 underline">Quitter le mode developpeur</button>
       </div>
       <div class="mt-8 space-y-3">
-        <button onclick="showSection('upload')" class="w-full py-3.5 bg-emerald-950 text-emerald-400 rounded-2xl text-sm font-medium">Publier une video</button>
         <a href="https://discord.gg/a2HexAGYK" target="_blank" class="w-full flex items-center justify-center gap-2 py-3.5 bg-[#5865F2] hover:bg-[#4752C4] rounded-2xl text-sm font-semibold" style="text-decoration:none;">
           <i class="fab fa-discord"></i> Rejoins la communaute
         </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- UPLOAD -->
-  <div id="section-upload" class="section block-section">
-    <div class="bg-zinc-900 rounded-3xl p-6">
-      <div class="mb-6">
-        <div class="font-bold text-xl">Publier une video</div>
-        <div class="text-emerald-400 text-sm"><span id="upload-count">0</span>/3 aujourd'hui</div>
-      </div>
-      <div id="upload-dropzone" onclick="document.getElementById('upload-input').click()" class="border-2 border-dashed border-zinc-700 rounded-3xl p-9 text-center cursor-pointer">
-        <i class="fas fa-cloud-upload-alt text-4xl text-zinc-400 mb-4"></i>
-        <div class="font-medium">Glissez ou cliquez pour uploader</div>
-        <div class="text-xs text-zinc-500">MP4 &bull; MOV &bull; Max 500MB</div>
-      </div>
-      <input type="file" id="upload-input" accept="video/*" class="hidden" onchange="handleVideoUpload(this)">
-      <div id="upload-form" class="hidden space-y-4">
-        <input type="text" id="video-title" placeholder="Titre *" class="w-full px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl text-lg">
-        <textarea id="video-desc" placeholder="Description" rows="3" class="w-full px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl"></textarea>
-        <div id="upload-progress" class="text-xs text-zinc-400"></div>
-        <button id="publish-btn" onclick="publishVideo()" class="w-full py-4 bg-emerald-600 rounded-2xl font-semibold">Publier la video</button>
       </div>
     </div>
   </div>
@@ -1111,7 +1087,6 @@ async function submitComment() {
 }
 
 /* ========== STATE ========== */
-let uploadsToday = 0;
 let feedObserver = null;
 let userProfile = {};
 let userInteracted = false; // true des que l'utilisateur a touche l'ecran une seule fois, permet au son de sortir automatiquement ensuite
@@ -1168,7 +1143,6 @@ function showSection(section) {
   if (navBtn) navBtn.classList.add('active');
 
   if (section === 'feed') loadVideos();
-  if (section === 'upload') updateUploadCount();
   if (section === 'admin') {
     const isDev = localStorage.getItem('beubeuland_devmode') === 'true';
     if (!isDev) { showSection('feed'); return; } // securite : jamais accessible hors mode developpeur
@@ -1500,68 +1474,6 @@ function updateProfileStatus() {
     status.innerHTML = '<i class="fas fa-check-circle"></i> <span>Compte gratuit</span>';
     status.className = 'mt-5 px-5 py-1.5 bg-zinc-800 text-zinc-400 text-sm font-medium rounded-full flex items-center gap-2 border border-zinc-700';
     if (exitBtn) exitBtn.classList.add('hidden');
-  }
-}
-
-/* ========== UPLOAD ========== */
-function updateUploadCount() {
-  const el = document.getElementById('upload-count');
-  if (el) el.innerText = uploadsToday;
-}
-
-function handleVideoUpload(input) {
-  if (!input.files.length) return;
-  const file = input.files[0];
-  const maxBytes = 500 * 1024 * 1024;
-  if (file.size > maxBytes) { alert('Fichier trop volumineux (max 500MB)'); input.value = ''; return; }
-  if (!file.type.startsWith('video/')) { alert('Veuillez selectionner un fichier video'); input.value = ''; return; }
-  document.getElementById('upload-dropzone').classList.add('hidden');
-  document.getElementById('upload-form').classList.remove('hidden');
-}
-
-async function publishVideo() {
-  const title = document.getElementById('video-title').value.trim();
-  if (!title) { alert('Titre requis'); return; }
-  if (uploadsToday >= 3) { alert('Limite atteinte (3 videos/jour)'); return; }
-  const input = document.getElementById('upload-input');
-  const file = input.files[0];
-  if (!file) { alert('Aucun fichier selectionne'); return; }
-  const publishBtn = document.getElementById('publish-btn');
-  const progressEl = document.getElementById('upload-progress');
-  publishBtn.disabled = true;
-  publishBtn.textContent = 'Publication...';
-  progressEl.classList.add('visible');
-  progressEl.textContent = 'Envoi de la video...';
-
-  try {
-    const profile = getProfile();
-    const formData = new FormData();
-    formData.append('video', file);
-    formData.append('title', title);
-    formData.append('description', document.getElementById('video-desc').value);
-    formData.append('authorId', getUserId());
-    formData.append('authorName', profile.name);
-
-    const res = await fetch(BACKEND_URL + '/videos', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
-
-    uploadsToday++;
-    localStorage.setItem('beubeuland_uploads_today', String(uploadsToday));
-    alert('✅ Video publiee ! Elle sera visible pour tout le monde dans quelques secondes.');
-    document.getElementById('upload-form').classList.add('hidden');
-    document.getElementById('upload-dropzone').classList.remove('hidden');
-    document.getElementById('video-title').value = '';
-    document.getElementById('video-desc').value = '';
-    input.value = '';
-    showSection('feed');
-  } catch (err) {
-    console.error('Erreur :', err);
-    alert('❌ Erreur lors de la publication: ' + (err.message || 'Inconnue'));
-  } finally {
-    publishBtn.disabled = false;
-    publishBtn.textContent = 'Publier la video';
-    progressEl.classList.remove('visible');
   }
 }
 
