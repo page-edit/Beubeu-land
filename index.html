@@ -667,23 +667,27 @@ body {
         <button onclick="adminShowTab('warnings')" class="admin-tab" id="atab-warnings"><i class="fas fa-exclamation-triangle mr-1"></i>Avertissements</button>
       </div>
 
-      <!-- Admin Upload -->
+      <!-- Admin Upload : generateur de JSON (pas d'appel serveur, plus fiable) -->
       <div id="admin-upload" class="admin-tab-content">
         <div class="content-card">
-          <div class="content-card-header"><i class="fas fa-cloud-upload-alt text-emerald-400"></i>Publier une video</div>
+          <div class="content-card-header"><i class="fas fa-cloud-upload-alt text-emerald-400"></i>Ajouter une video</div>
           <div class="content-card-body" style="padding: 16px;">
-            <div id="admin-dropzone" onclick="document.getElementById('admin-file').click()" class="upload-zone">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div class="upload-zone-title">Glissez votre video ici</div>
-              <div class="upload-zone-sub">MP4, MOV &mdash; Max 500MB</div>
+            <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:12px;padding:12px;margin-bottom:14px;font-size:11px;color:#93c5fd;line-height:1.6;">
+              <b>Etapes :</b><br>
+              1. Uploade ta video sur Cloudflare R2 (bucket <code>beubeuland-videos</code>)<br>
+              2. Remplis ce formulaire avec le nom exact du fichier<br>
+              3. Copie le JSON genere<br>
+              4. Colle-le dans <code>videos.json</code> sur GitHub (ajoute une virgule + colle dans le tableau existant)
             </div>
-            <input type="file" id="admin-file" accept="video/*" class="hidden" onchange="handleAdminFile(this)">
-            <div id="admin-form" class="hidden" style="margin-top: 16px;">
-              <div style="display: flex; flex-direction: column; gap: 10px;">
-                <input type="text" id="admin-title" placeholder="Titre de la video *" class="admin-input">
-                <textarea id="admin-desc" placeholder="Description (optionnelle)" rows="3" class="admin-input" style="resize: vertical; min-height: 70px;"></textarea>
-                <div id="admin-progress" style="font-size: 11px; color: #a1a1aa; display: none;"></div>
-                <button id="admin-publish-btn" onclick="publishAdminVideo()" class="modal-btn modal-btn-primary" style="padding: 12px;">Publier sur le feed</button>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <input type="text" id="admin-title" placeholder="Titre de la video *" class="admin-input">
+              <textarea id="admin-desc" placeholder="Description (optionnelle)" rows="2" class="admin-input" style="resize: vertical; min-height: 50px;"></textarea>
+              <input type="text" id="admin-r2-filename" placeholder="Nom exact du fichier sur R2 (ex: ma-video.mp4) *" class="admin-input">
+              <button id="admin-generate-btn" onclick="generateVideoJson()" class="modal-btn modal-btn-primary" style="padding: 12px;">Generer le JSON</button>
+              <div id="admin-json-result" class="hidden">
+                <label style="font-size: 10px; color: #a1a1aa; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; display: block;">A coller dans videos.json</label>
+                <textarea id="admin-json-output" readonly class="admin-input" style="resize: vertical; min-height: 160px; font-family: monospace; font-size: 11px;"></textarea>
+                <button onclick="copyGeneratedJson()" class="modal-btn modal-btn-secondary" style="padding: 10px; margin-top: 8px;"><i class="fas fa-copy"></i> Copier</button>
               </div>
             </div>
           </div>
@@ -824,10 +828,12 @@ body {
 <script>
 const DEV_CODE = 'sil55201';
 
-// Feed partage : toutes les videos sont lues/ecrites via ce backend + GitHub,
-// pour que TOUT LE MONDE voie les memes videos (plus de stockage local).
-const BACKEND_URL = 'https://beubeu-feed.onrender.com/api';
+// Feed partage : lu directement depuis GitHub (videos.json) par tout le monde,
+// aucun serveur requis. L'admin ajoute des videos manuellement (upload sur R2 +
+// coller le JSON genere dans videos.json), voir onglet Admin > Upload.
 const VIDEOS_JSON_URL = 'https://raw.githubusercontent.com/page-edit/Beubeu-land/main/videos.json';
+// ⚠️ Remplace par ton URL publique R2 (Cloudflare > R2 > ton bucket > Settings > Public Development URL), SANS slash a la fin.
+const R2_PUBLIC_BASE_URL = 'https://pub-00c98d5ab1b2428b9b2e58746009f991.r2.dev';
 
 const DB_NAME = 'beubeuland_db';
 const DB_VERSION = 4;
@@ -1602,56 +1608,41 @@ async function updateAdminStats() {
   }
 }
 
-function handleAdminFile(input) {
-  if (!input.files.length) return;
-  const file = input.files[0];
-  const maxBytes = 500 * 1024 * 1024;
-  if (file.size > maxBytes) { alert('Fichier trop volumineux (max 500MB)'); input.value = ''; return; }
-  if (!file.type.startsWith('video/')) { alert('Veuillez selectionner un fichier video'); input.value = ''; return; }
-  document.getElementById('admin-dropzone').classList.add('hidden');
-  document.getElementById('admin-form').classList.remove('hidden');
-  const titleInput = document.getElementById('admin-title');
-  if (titleInput && !titleInput.value) titleInput.value = file.name.split('.')[0];
+function generateVideoJson() {
+  const title = document.getElementById('admin-title').value.trim();
+  const description = document.getElementById('admin-desc').value.trim();
+  const filename = document.getElementById('admin-r2-filename').value.trim();
+
+  if (!title) { alert('Titre requis'); return; }
+  if (!filename) { alert('Nom du fichier R2 requis'); return; }
+
+  const videoUrl = R2_PUBLIC_BASE_URL.replace(/\/$/, '') + '/' + filename.replace(/^\//, '');
+
+  const entry = {
+    id: Date.now(),
+    title: title,
+    description: description,
+    videoUrl: videoUrl,
+    fileType: 'video/mp4',
+    authorId: 'admin',
+    authorName: 'ines_dz🇲🇦🫦',
+    isAdmin: true,
+    created_at: new Date().toISOString()
+  };
+
+  const jsonText = JSON.stringify(entry, null, 2) + ',';
+  document.getElementById('admin-json-output').value = jsonText;
+  document.getElementById('admin-json-result').classList.remove('hidden');
 }
 
-async function publishAdminVideo() {
-  const title = document.getElementById('admin-title').value.trim();
-  if (!title) { alert('Titre requis'); return; }
-  const fileInput = document.getElementById('admin-file');
-  const file = fileInput.files[0];
-  if (!file) { alert('Aucun fichier selectionne'); return; }
-  const btn = document.getElementById('admin-publish-btn');
-  const progressEl = document.getElementById('admin-progress');
-  btn.disabled = true; btn.textContent = 'Publication en cours...';
-  progressEl.style.display = 'block'; progressEl.textContent = 'Envoi de la video...';
-
-  try {
-    const formData = new FormData();
-    formData.append('video', file);
-    formData.append('title', title);
-    formData.append('description', document.getElementById('admin-desc').value);
-    formData.append('authorId', 'admin');
-    formData.append('authorName', 'ines_dz🇲🇦🫦');
-    formData.append('isAdmin', 'true');
-
-    const res = await fetch(BACKEND_URL + '/videos', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
-
-    alert('✅ Video publiee avec succes ! Visible pour tout le monde dans quelques secondes.');
-    document.getElementById('admin-form').classList.add('hidden');
-    document.getElementById('admin-dropzone').classList.remove('hidden');
-    document.getElementById('admin-title').value = '';
-    document.getElementById('admin-desc').value = '';
-    fileInput.value = '';
-    btn.disabled = false; btn.textContent = 'Publier sur le feed';
-    progressEl.style.display = 'none';
-    updateAdminStats();
-  } catch (err) {
-    console.error('Erreur :', err);
-    alert('❌ Erreur lors de la publication: ' + (err.message || 'Inconnue'));
-    btn.disabled = false; btn.textContent = 'Publier sur le feed';
-    progressEl.style.display = 'none';
+function copyGeneratedJson() {
+  const el = document.getElementById('admin-json-output');
+  el.select();
+  el.setSelectionRange(0, 999999);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(el.value).then(() => showDevToast('✅ JSON copie !')).catch(() => {});
+  } else {
+    document.execCommand('copy');
   }
 }
 
@@ -1764,18 +1755,14 @@ async function loadAllVideos() {
   }
 }
 
-async function deleteAdminVideo(id) {
-  if (!confirm('Supprimer cette video ? Cette action est irreversible pour tout le monde.')) return;
-  try {
-    const res = await fetch(BACKEND_URL + '/videos/' + id, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.error || 'Erreur serveur');
-    loadAllVideos();
-    updateAdminStats();
-  } catch (err) {
-    console.error('Erreur suppression:', err);
-    alert('❌ Erreur lors de la suppression: ' + (err.message || 'Inconnue'));
-  }
+function deleteAdminVideo(id) {
+  const msg = "Suppression manuelle requise :\n\n" +
+    "1. Va sur GitHub > videos.json\n" +
+    "2. Cherche l'entree avec \"id\": " + id + "\n" +
+    "3. Supprime tout le bloc { ... } correspondant (et la virgule qui va avec)\n" +
+    "4. Commit changes\n\n" +
+    "Pense aussi a supprimer le fichier video sur Cloudflare R2 si tu veux liberer de l'espace.";
+  alert(msg);
 }
 
 async function viewUserVideos(userId, userName) {
