@@ -1254,6 +1254,7 @@ async function loadVideos(forceRefresh) {
 
   const feed = document.getElementById('tiktok-feed');
   if (feedObserver) feedObserver.disconnect();
+  if (lazyLoadObserver) lazyLoadObserver.disconnect();
 
   try {
     const videos = await getVideos(forceRefresh);
@@ -1290,7 +1291,6 @@ async function loadVideos(forceRefresh) {
       videoEl.className = 'video-player';
       videoEl.loop = true;
       videoEl.playsInline = true;
-      videoEl.preload = 'metadata';
       videoEl.muted = true;
       videoEl.volume = 0.8;
       videoEl.setAttribute('playsinline', '');
@@ -1299,7 +1299,21 @@ async function loadVideos(forceRefresh) {
 
       // Chaque video est hebergee publiquement (Cloudflare R2) : le navigateur
       // la streame directement depuis son URL, plus besoin de Blob/IndexedDB.
-      videoEl.src = video.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+      // Chargement paresseux (lazy) : on ne pointe PAS videoEl.src ici. Si on le
+      // faisait pour toutes les videos d'un coup, le navigateur lancerait autant
+      // de telechargements en parallele des l'affichage du feed, ce qui sature
+      // la connexion et ralentit justement la toute premiere video qu'on regarde.
+      // On stocke l'URL et on ne charge que quand la video approche du viewport
+      // (voir lazyLoadObserver plus bas).
+      const resolvedSrc = video.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+      videoEl.dataset.src = resolvedSrc;
+      videoEl.preload = 'none';
+      if (fragment.childNodes.length === 0) {
+        // La toute premiere video du feed est deja visible a l'ecran : on la
+        // charge immediatement, pas la peine d'attendre l'IntersectionObserver.
+        videoEl.preload = 'metadata';
+        videoEl.src = resolvedSrc;
+      }
 
       const loader = document.createElement('div');
       loader.className = 'video-loader';
@@ -1482,15 +1496,30 @@ function updateFullscreenIcon(isExpanded) {
   }
 }
 
+// Assigne reellement la source d'une video (declenche le telechargement) si ce
+// n'est pas deja fait. Utilise a la fois par le lazy-load observer (chargement
+// anticipe) et en filet de securite dans l'observer de lecture (scroll rapide).
+function ensureVideoLoaded(vid) {
+  if (!vid.src && vid.dataset.src) {
+    vid.preload = 'auto';
+    vid.src = vid.dataset.src;
+  }
+}
+
+let lazyLoadObserver = null;
+
 function setupAutoplayObserver() {
   const slides = document.querySelectorAll('.video-slide video');
   if (!slides.length) return;
   if (feedObserver) feedObserver.disconnect();
+  if (lazyLoadObserver) lazyLoadObserver.disconnect();
 
+  // Observer de lecture : joue/pause selon la visibilite reelle.
   feedObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const vid = entry.target;
       if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+        ensureVideoLoaded(vid); // filet de securite si le scroll a saute l'etape de preload
         // Des qu'un geste utilisateur a eu lieu une fois (n'importe ou sur l'app), le son sort
         // automatiquement sans avoir besoin de retoucher chaque video individuellement.
         if (userInteracted) vid.muted = false;
@@ -1507,7 +1536,22 @@ function setupAutoplayObserver() {
     });
   }, { threshold: [0.5] });
 
-  slides.forEach(vid => feedObserver.observe(vid));
+  // Observer de prechargement : declenche le telechargement d'une video un peu
+  // avant qu'elle n'entre a l'ecran (une hauteur d'ecran de marge au-dessus et
+  // en dessous), pour que la lecture demarre sans attente une fois qu'on y arrive
+  // au scroll, SANS pour autant charger les 20 videos du feed en meme temps.
+  lazyLoadObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        ensureVideoLoaded(entry.target);
+      }
+    });
+  }, { rootMargin: '100% 0px 100% 0px', threshold: 0 });
+
+  slides.forEach(vid => {
+    feedObserver.observe(vid);
+    lazyLoadObserver.observe(vid);
+  });
 }
 
 // Capture le tout premier geste (tap/clic/touche) n'importe ou dans l'app pour debloquer le son
