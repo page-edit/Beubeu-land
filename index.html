@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Beubeuland &bull; Client</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -615,7 +615,7 @@ body {
         </div>
         <h2 id="profile-name" class="text-2xl font-bold">Beubeuland</h2>
         <p id="profile-bio" class="text-zinc-400 text-sm mt-1 text-center max-w-xs">demo@beubeuland.com</p>
-        <div id="profile-status" class="mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900">
+        <div id="profile-status" class="hidden mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900">
           <i class="fas fa-check-circle"></i> <span>Compte actif</span>
         </div>
         <button id="dev-exit-btn" onclick="deactivateDevMode()" class="hidden mt-2 text-xs text-zinc-500 underline">Quitter le mode developpeur</button>
@@ -774,7 +774,7 @@ body {
     <div id="comments-count" style="font-size:11px;color:#a1a1aa;margin-bottom:8px;">0 commentaire</div>
     <div id="comments-list" style="flex:1;overflow-y:auto;min-height:0;margin-bottom:12px;"></div>
     <div style="display:flex;gap:8px;border-top:1px solid #27272a;padding-top:12px;">
-      <input type="text" id="comment-input" placeholder="Ajouter un commentaire..." style="flex:1;padding:10px 14px;background:#0f0f11;border:1px solid #27272a;border-radius:12px;color:#fafafa;font-size:14px;outline:none;" onkeydown="if(event.key==='Enter')submitComment()">
+      <input type="text" id="comment-input" placeholder="Ajouter un commentaire..." style="flex:1;padding:10px 14px;background:#0f0f11;border:1px solid #27272a;border-radius:12px;color:#fafafa;font-size:16px;outline:none;" onkeydown="if(event.key==='Enter')submitComment()">
       <button onclick="submitComment()" style="padding:10px 16px;background:#10b981;border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
     </div>
   </div>
@@ -1422,13 +1422,22 @@ function setupVideoControls(video, id, loader, bigPlay) {
       video.pause();
     }
   }
-  playBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePlay(); });
+  playBtn.addEventListener('click', (e) => { e.stopPropagation(); ensureVideoLoaded(video); togglePlay(); });
   video.addEventListener('play', () => { playBtn.innerHTML = '<i class="fas fa-pause"></i>'; bigPlay.classList.remove('visible'); bigPlay.innerHTML = '<i class="fas fa-pause"></i>'; });
   video.addEventListener('pause', () => { playBtn.innerHTML = '<i class="fas fa-play"></i>'; bigPlay.classList.add('visible'); bigPlay.innerHTML = '<i class="fas fa-play"></i>'; });
-  video.addEventListener('click', () => { togglePlay(); });
+  video.addEventListener('click', () => { ensureVideoLoaded(video); togglePlay(); });
 
-  if (backBtn) backBtn.addEventListener('click', (e) => { e.stopPropagation(); video.currentTime = Math.max(0, video.currentTime - 10); });
-  if (fwdBtn) fwdBtn.addEventListener('click', (e) => { e.stopPropagation(); video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); });
+  if (backBtn) backBtn.addEventListener('click', (e) => { e.stopPropagation(); ensureVideoLoaded(video); video.currentTime = Math.max(0, video.currentTime - 10); });
+  if (fwdBtn) fwdBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ensureVideoLoaded(video);
+    // On utilise Infinity par defaut (au lieu de 0) tant que la duree n'est pas
+    // encore connue : avant, "video.duration || 0" ramenait la video a 0
+    // seconde des qu'on cliquait sur avance rapide avant la fin du chargement
+    // des metadonnees, ce qui donnait l'impression que le bouton ne marchait pas.
+    const dur = (video.duration && isFinite(video.duration)) ? video.duration : Infinity;
+    video.currentTime = Math.min(dur, video.currentTime + 10);
+  });
 
   video.addEventListener('timeupdate', () => {
     if (video.duration && isFinite(video.duration) && video.duration > 0) {
@@ -1441,6 +1450,7 @@ function setupVideoControls(video, id, loader, bigPlay) {
   if (progContainer) {
     progContainer.addEventListener('click', (e) => {
       e.stopPropagation();
+      ensureVideoLoaded(video);
       const rect = progContainer.getBoundingClientRect();
       if (video.duration && isFinite(video.duration) && video.duration > 0) {
         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -1546,7 +1556,7 @@ function setupAutoplayObserver() {
         ensureVideoLoaded(entry.target);
       }
     });
-  }, { rootMargin: '100% 0px 100% 0px', threshold: 0 });
+  }, { rootMargin: '800px 0px 800px 0px', threshold: 0 });
 
   slides.forEach(vid => {
     feedObserver.observe(vid);
@@ -1594,8 +1604,8 @@ function updateProfileStatus() {
     status.className = 'mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900';
     if (exitBtn) exitBtn.classList.remove('hidden');
   } else {
-    status.innerHTML = '<i class="fas fa-check-circle"></i> <span>Compte gratuit</span>';
-    status.className = 'mt-5 px-5 py-1.5 bg-zinc-800 text-zinc-400 text-sm font-medium rounded-full flex items-center gap-2 border border-zinc-700';
+    // Badge "Compte gratuit" retire du profil pour les utilisateurs normaux.
+    status.className = 'hidden';
     if (exitBtn) exitBtn.classList.add('hidden');
   }
 }
