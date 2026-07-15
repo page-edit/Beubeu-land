@@ -832,7 +832,7 @@ const DEV_CODE = 'sil55201';
 // aucun serveur requis. L'admin ajoute des videos manuellement (upload sur R2 +
 // coller le JSON genere dans videos.json), voir onglet Admin > Upload.
 const VIDEOS_JSON_URL = 'https://raw.githubusercontent.com/page-edit/Beubeu-land/main/videos.json';
-// ⚠️ Remplace par ton URL publique R2 (Cloudflare > R2 > ton bucket > Settings > Public Development URL), SANS slash a la fin.
+// Remplace par ton URL publique R2 (Cloudflare > R2 > ton bucket > Settings > Public Development URL), SANS slash a la fin.
 const R2_PUBLIC_BASE_URL = 'https://pub-00c98d5ab1b2428b9b2e58746009f991.r2.dev';
 
 const DB_NAME = 'beubeuland_db';
@@ -843,8 +843,14 @@ const STORE_LIKES = 'likes';
 const STORE_COMMENTS = 'comments';
 const STORE_WARNINGS = 'warnings';
 
+// ===== Connexion IndexedDB en singleton =====
+// Avant : chaque get/save/delete rouvrait une connexion indexedDB.open() complete.
+// Ouvrir la DB a un cout (plusieurs ms) ; multiplie par 3-4 stores x N videos a chaque
+// visite du feed, ca faisait des secondes d'attente. On garde une seule connexion ouverte.
+let _dbConnPromise = null;
 function openDB() {
-  return new Promise((resolve, reject) => {
+  if (_dbConnPromise) return _dbConnPromise;
+  _dbConnPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = req.result;
@@ -854,10 +860,15 @@ function openDB() {
       if (!db.objectStoreNames.contains(STORE_COMMENTS)) db.createObjectStore(STORE_COMMENTS, { keyPath: 'id', autoIncrement: true });
       if (!db.objectStoreNames.contains(STORE_WARNINGS)) db.createObjectStore(STORE_WARNINGS, { keyPath: 'id', autoIncrement: true });
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-    req.onblocked = () => reject(new Error('IndexedDB blocked'));
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onclose = () => { _dbConnPromise = null; };
+      resolve(db);
+    };
+    req.onerror = () => { _dbConnPromise = null; reject(req.error); };
+    req.onblocked = () => { _dbConnPromise = null; reject(new Error('IndexedDB blocked')); };
   });
+  return _dbConnPromise;
 }
 
 async function saveToStore(store, data) {
@@ -906,15 +917,42 @@ async function deleteFromStore(store, key) {
 /* ========== VIDEOS (feed partage, plus de stockage local) ========== */
 // Toutes les videos vivent sur videos.json (GitHub) + Cloudflare R2, via le backend.
 // getVideos() est desormais un simple fetch reseau, identique pour tout le monde.
-async function getVideos() {
+// Mise en cache courte duree : on evite de re-telecharger + re-parser videos.json
+// a chaque fois que l'utilisateur revient sur l'onglet Feed (c'etait la cause
+// principale du long temps de chargement a repetition).
+let _videosCache = null;
+let _videosCacheAt = 0;
+const VIDEOS_CACHE_TTL = 60000; // 60s
+
+async function getVideos(forceRefresh) {
+  const now = Date.now();
+  if (!forceRefresh && _videosCache !== null && (now - _videosCacheAt) < VIDEOS_CACHE_TTL) {
+    return _videosCache;
+  }
   try {
     const res = await fetch(VIDEOS_JSON_URL + '?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('Erreur reseau (' + res.status + ')');
-    const videos = await res.json();
+    const raw = await res.json();
+
+    // Deduplication par id : au cas ou videos.json contiendrait deux entrees
+    // avec le meme id (copier-coller dans l'admin), on ne garde que la premiere
+    // occurrence. C'est ce qui provoquait la meme video affichee deux fois au scroll.
+    const seen = new Set();
+    const videos = [];
+    for (const v of raw) {
+      if (v && !seen.has(v.id)) {
+        seen.add(v.id);
+        videos.push(v);
+      }
+    }
     videos.sort((a, b) => b.id - a.id);
+
+    _videosCache = videos;
+    _videosCacheAt = now;
     return videos;
   } catch (e) {
     console.error('Erreur chargement feed partage:', e);
+    if (_videosCache !== null) return _videosCache; // on garde l'ancien cache plutot que de planter
     return null; // null = erreur reseau distincte de "aucune video"
   }
 }
@@ -1096,6 +1134,8 @@ async function submitComment() {
 let feedObserver = null;
 let userProfile = {};
 let userInteracted = false; // true des que l'utilisateur a touche l'ecran une seule fois, permet au son de sortir automatiquement ensuite
+let currentSection = 'feed';
+let isLoadingVideos = false; // empeche deux loadVideos() concurrents (source des doublons a l'ecran)
 
 function getProfile() {
   return {
@@ -1135,6 +1175,13 @@ function updateNavVisibility() {
 }
 
 function showSection(section) {
+  // Si on reclique sur l'onglet Feed alors qu'il est deja actif, on ne fait rien :
+  // ca evite de relancer un fetch + un rebuild complet du feed (et la video en cours
+  // de lecture n'est plus coupee a chaque clic sur l'onglet).
+  if (section === 'feed' && currentSection === 'feed') {
+    return;
+  }
+
   document.querySelectorAll('.section').forEach(el => {
     el.classList.remove('active');
   });
@@ -1147,6 +1194,8 @@ function showSection(section) {
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
   const navBtn = document.getElementById('nav-' + section);
   if (navBtn) navBtn.classList.add('active');
+
+  currentSection = section;
 
   if (section === 'feed') loadVideos();
   if (section === 'admin') {
@@ -1196,86 +1245,110 @@ function formatTime(seconds) {
 }
 
 /* ========== VIDEOS ========== */
-async function loadVideos() {
+async function loadVideos(forceRefresh) {
+  // Garde anti-concurrence : si un chargement est deja en cours (ex: deux clics
+  // rapides, ou reappel pendant un fetch lent), on ignore le nouvel appel au lieu
+  // de lancer un deuxieme rendu qui doublerait les videos dans le feed.
+  if (isLoadingVideos) return;
+  isLoadingVideos = true;
+
   const feed = document.getElementById('tiktok-feed');
-  feed.innerHTML = '';
   if (feedObserver) feedObserver.disconnect();
 
-  const videos = await getVideos();
+  try {
+    const videos = await getVideos(forceRefresh);
 
-  if (videos === null) {
+    if (videos === null) {
+      feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Erreur de chargement du feed<br><span class="text-xs">Verifie ta connexion et reessaie</span></div>';
+      return;
+    }
+
+    if (videos.length === 0) {
+      feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Aucune video pour le moment</div>';
+      return;
+    }
+
+    // Un seul aller-retour IndexedDB pour tous les likes/commentaires au lieu
+    // d'un aller-retour par video (c'etait 3 ouvertures de store par video avant).
+    const [allLikes, allComments] = await Promise.all([
+      getAllFromStore(STORE_LIKES),
+      getAllFromStore(STORE_COMMENTS)
+    ]);
+    const uid = getUserId();
+
+    const fragment = document.createDocumentFragment();
+
+    for (const video of videos) {
+      const likeCount = allLikes.filter(l => l.videoId === video.id).length;
+      const userLiked = allLikes.some(l => l.videoId === video.id && l.userId === uid);
+      const commentCount = allComments.filter(c => c.videoId === video.id).length;
+
+      const slide = document.createElement('div');
+      slide.className = 'video-slide';
+
+      const videoEl = document.createElement('video');
+      videoEl.className = 'video-player';
+      videoEl.loop = true;
+      videoEl.playsInline = true;
+      videoEl.preload = 'metadata';
+      videoEl.muted = true;
+      videoEl.volume = 0.8;
+      videoEl.setAttribute('playsinline', '');
+      videoEl.setAttribute('webkit-playsinline', '');
+      videoEl.dataset.videoId = video.id;
+
+      // Chaque video est hebergee publiquement (Cloudflare R2) : le navigateur
+      // la streame directement depuis son URL, plus besoin de Blob/IndexedDB.
+      videoEl.src = video.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+
+      const loader = document.createElement('div');
+      loader.className = 'video-loader';
+      loader.innerHTML = '<div class="spinner"></div>';
+      const bigPlay = document.createElement('div');
+      bigPlay.className = 'big-play-btn';
+      bigPlay.innerHTML = '<i class="fas fa-play"></i>';
+      const controls = document.createElement('div');
+      controls.className = 'video-controls';
+      controls.innerHTML = '<div class="progress-bar-container" id="prog-' + video.id + '"><div class="progress-bar-fill" id="fill-' + video.id + '"></div></div><div class="controls-row"><button id="play-' + video.id + '" title="Play/Pause"><i class="fas fa-pause"></i></button><button id="back-' + video.id + '" title="-10s"><i class="fas fa-undo"></i></button><button id="fwd-' + video.id + '" title="+10s"><i class="fas fa-redo"></i></button><div class="time-display" id="time-' + video.id + '">0:00 / 0:00</div><div style="flex:1"></div><button class="volume-btn" id="vol-' + video.id + '" title="Volume"><i class="fas fa-volume-up"></i><div class="volume-slider"><input type="range" min="0" max="100" value="80" id="vol-range-' + video.id + '"></div></button><button id="fullscreen-' + video.id + '" title="Plein ecran"><i class="fas fa-expand"></i></button></div>';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'video-overlay';
+      const info = document.createElement('div');
+      info.className = 'video-info';
+      info.innerHTML = '<div class="font-bold text-base leading-tight">' + escapeHtml(video.title) + '</div><div class="text-xs text-zinc-300 mt-0.5 leading-tight">' + escapeHtml(video.description || '') + '</div><div class="text-[10px] text-emerald-400 mt-1">@' + escapeHtml(video.authorName || 'Beubeuland') + '</div>';
+
+      const likeClass = userLiked ? 'liked' : '';
+      const actions = document.createElement('div');
+      actions.className = 'video-actions-right';
+      actions.innerHTML = '<button onclick="handleLike(this, ' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5 ' + likeClass + '" id="like-btn-' + video.id + '"><i class="fas fa-heart text-2xl"></i><span class="text-[10px]" id="like-count-' + video.id + '">' + likeCount + '</span></button><button onclick="openCommentModal(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-comment text-2xl"></i><span class="text-[10px]" id="comment-count-' + video.id + '">' + commentCount + '</span></button><button onclick="shareVideo(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-share text-2xl"></i></button>';
+
+      const videoWrapper = document.createElement('div');
+      videoWrapper.className = 'video-wrapper';
+      videoWrapper.appendChild(videoEl);
+      videoWrapper.appendChild(overlay);
+      videoWrapper.appendChild(info);
+      videoWrapper.appendChild(actions);
+      videoWrapper.appendChild(loader);
+      videoWrapper.appendChild(bigPlay);
+      slide.appendChild(videoWrapper);
+      slide.appendChild(controls);
+      fragment.appendChild(slide);
+      setupVideoControls(videoEl, video.id, loader, bigPlay);
+    }
+
+    // On construit tout le feed hors-DOM (fragment) puis on remplace le contenu
+    // en une seule fois : plus de fenetre ou l'ancien ET le nouveau feed coexistent,
+    // ce qui pouvait donner l'impression de videos "en double" pendant le scroll.
+    feed.innerHTML = '';
+    feed.appendChild(fragment);
+
+    setupAutoplayObserver();
+  } catch (e) {
+    console.error('Erreur chargement du feed:', e);
     feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Erreur de chargement du feed<br><span class="text-xs">Verifie ta connexion et reessaie</span></div>';
-    return;
+  } finally {
+    isLoadingVideos = false;
   }
-
-  if (videos.length === 0) {
-    feed.innerHTML = '<div class="text-center text-zinc-500 py-20">Aucune video pour le moment</div>';
-    return;
-  }
-
-  const visibleVideos = videos;
-
-  for (const video of visibleVideos) {
-    const likes = await getLikesForVideo(video.id);
-    const userLiked = await hasUserLiked(video.id);
-    const likeCount = likes.length;
-    const comments = await getCommentsForVideo(video.id);
-    const commentCount = comments.length;
-
-    const slide = document.createElement('div');
-    slide.className = 'video-slide';
-
-    const videoEl = document.createElement('video');
-    videoEl.className = 'video-player';
-    videoEl.loop = true;
-    videoEl.playsInline = true;
-    videoEl.preload = 'metadata';
-    videoEl.muted = true;
-    videoEl.volume = 0.8;
-    videoEl.setAttribute('playsinline', '');
-    videoEl.setAttribute('webkit-playsinline', '');
-    videoEl.dataset.videoId = video.id;
-
-    // Chaque video est hebergee publiquement (Cloudflare R2) : le navigateur
-    // la streame directement depuis son URL, plus besoin de Blob/IndexedDB.
-    videoEl.src = video.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
-
-    const loader = document.createElement('div');
-    loader.className = 'video-loader';
-    loader.innerHTML = '<div class="spinner"></div>';
-    const bigPlay = document.createElement('div');
-    bigPlay.className = 'big-play-btn';
-    bigPlay.innerHTML = '<i class="fas fa-play"></i>';
-    const controls = document.createElement('div');
-    controls.className = 'video-controls';
-    controls.innerHTML = '<div class="progress-bar-container" id="prog-' + video.id + '"><div class="progress-bar-fill" id="fill-' + video.id + '"></div></div><div class="controls-row"><button id="play-' + video.id + '" title="Play/Pause"><i class="fas fa-pause"></i></button><button id="back-' + video.id + '" title="-10s"><i class="fas fa-undo"></i></button><button id="fwd-' + video.id + '" title="+10s"><i class="fas fa-redo"></i></button><div class="time-display" id="time-' + video.id + '">0:00 / 0:00</div><div style="flex:1"></div><button class="volume-btn" id="vol-' + video.id + '" title="Volume"><i class="fas fa-volume-up"></i><div class="volume-slider"><input type="range" min="0" max="100" value="80" id="vol-range-' + video.id + '"></div></button><button id="fullscreen-' + video.id + '" title="Plein ecran"><i class="fas fa-expand"></i></button></div>';
-
-    const overlay = document.createElement('div');
-    overlay.className = 'video-overlay';
-    const info = document.createElement('div');
-    info.className = 'video-info';
-    info.innerHTML = '<div class="font-bold text-base leading-tight">' + escapeHtml(video.title) + '</div><div class="text-xs text-zinc-300 mt-0.5 leading-tight">' + escapeHtml(video.description || '') + '</div><div class="text-[10px] text-emerald-400 mt-1">@' + escapeHtml(video.authorName || 'Beubeuland') + '</div>';
-
-    const likeClass = userLiked ? 'liked' : '';
-    const actions = document.createElement('div');
-    actions.className = 'video-actions-right';
-    actions.innerHTML = '<button onclick="handleLike(this, ' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5 ' + likeClass + '" id="like-btn-' + video.id + '"><i class="fas fa-heart text-2xl"></i><span class="text-[10px]" id="like-count-' + video.id + '">' + likeCount + '</span></button><button onclick="openCommentModal(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-comment text-2xl"></i><span class="text-[10px]" id="comment-count-' + video.id + '">' + commentCount + '</span></button><button onclick="shareVideo(' + video.id + ')" class="action-btn flex flex-col items-center gap-0.5"><i class="fas fa-share text-2xl"></i></button>';
-
-    const videoWrapper = document.createElement('div');
-    videoWrapper.className = 'video-wrapper';
-    videoWrapper.appendChild(videoEl);
-    videoWrapper.appendChild(overlay);
-    videoWrapper.appendChild(info);
-    videoWrapper.appendChild(actions);
-    videoWrapper.appendChild(loader);
-    videoWrapper.appendChild(bigPlay);
-    slide.appendChild(videoWrapper);
-    slide.appendChild(controls);
-    feed.appendChild(slide);
-    setupVideoControls(videoEl, video.id, loader, bigPlay);
-  }
-
-  setupAutoplayObserver();
 }
 
 async function handleLike(btn, videoId) {
@@ -1572,6 +1645,7 @@ async function init() {
   const feedSection = document.getElementById('section-feed');
   feedSection.classList.add('active');
   document.getElementById('nav-feed').classList.add('active');
+  currentSection = 'feed';
   updateProfileStatus();
 
   loadVideos();
