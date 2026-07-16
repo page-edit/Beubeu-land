@@ -1320,10 +1320,11 @@ async function loadVideos(forceRefresh) {
       loader.innerHTML = '<div class="spinner"></div>';
       const bigPlay = document.createElement('div');
       bigPlay.className = 'big-play-btn';
+      bigPlay.dataset.action = 'playpause';
       bigPlay.innerHTML = '<i class="fas fa-play"></i>';
       const controls = document.createElement('div');
       controls.className = 'video-controls';
-      controls.innerHTML = '<div class="progress-bar-container" id="prog-' + video.id + '"><div class="progress-bar-fill" id="fill-' + video.id + '"></div></div><div class="controls-row"><button id="play-' + video.id + '" title="Play/Pause"><i class="fas fa-pause"></i></button><button id="back-' + video.id + '" title="-10s"><i class="fas fa-undo"></i></button><button id="fwd-' + video.id + '" title="+10s"><i class="fas fa-redo"></i></button><div class="time-display" id="time-' + video.id + '">0:00 / 0:00</div><div style="flex:1"></div><button class="volume-btn" id="vol-' + video.id + '" title="Volume"><i class="fas fa-volume-up"></i><div class="volume-slider"><input type="range" min="0" max="100" value="80" id="vol-range-' + video.id + '"></div></button><button id="fullscreen-' + video.id + '" title="Plein ecran"><i class="fas fa-expand"></i></button></div>';
+      controls.innerHTML = '<div class="progress-bar-container" id="prog-' + video.id + '"><div class="progress-bar-fill" id="fill-' + video.id + '"></div></div><div class="controls-row"><button id="play-' + video.id + '" data-action="playpause" title="Play/Pause"><i class="fas fa-pause"></i></button><button id="back-' + video.id + '" data-action="back" title="-10s"><i class="fas fa-undo"></i></button><button id="fwd-' + video.id + '" data-action="fwd" title="+10s"><i class="fas fa-redo"></i></button><div class="time-display" id="time-' + video.id + '">0:00 / 0:00</div><div style="flex:1"></div><button class="volume-btn" id="vol-' + video.id + '" data-action="volume" title="Volume"><i class="fas fa-volume-up"></i><div class="volume-slider"><input type="range" min="0" max="100" value="80" id="vol-range-' + video.id + '"></div></button><button id="fullscreen-' + video.id + '" data-action="fullscreen" title="Plein ecran"><i class="fas fa-expand"></i></button></div>';
 
       const overlay = document.createElement('div');
       overlay.className = 'video-overlay';
@@ -1347,7 +1348,7 @@ async function loadVideos(forceRefresh) {
       slide.appendChild(videoWrapper);
       slide.appendChild(controls);
       fragment.appendChild(slide);
-      setupVideoControls(videoEl, video.id, loader, bigPlay);
+      setupVideoControls(videoEl, video.id, loader, bigPlay, controls);
     }
 
     // On construit tout le feed hors-DOM (fragment) puis on remplace le contenu
@@ -1375,17 +1376,19 @@ async function handleLike(btn, videoId) {
 }
 
 /* ========== CONTROLS ========== */
-function setupVideoControls(video, id, loader, bigPlay) {
+function setupVideoControls(video, id, loader, bigPlay, controls) {
   video.addEventListener('error', () => {
     console.warn('Erreur chargement video, fallback...');
     loader.classList.remove('visible');
     bigPlay.classList.add('visible');
     bigPlay.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
     bigPlay.title = 'Cliquez pour reessayer';
+    delete bigPlay.dataset.action; // evite que la delegation de clics agisse en meme temps que la relance manuelle
     bigPlay.onclick = function() {
       video.load();
       video.play().catch(()=>{});
       bigPlay.innerHTML = '<i class="fas fa-play"></i>';
+      bigPlay.dataset.action = 'playpause';
       bigPlay.onclick = null;
     };
   });
@@ -1393,14 +1396,15 @@ function setupVideoControls(video, id, loader, bigPlay) {
   video.addEventListener('stalled', () => { loader.classList.add('visible'); });
   video.addEventListener('suspend', () => { loader.classList.add('visible'); });
 
-  const playBtn = document.getElementById('play-' + id);
-  const backBtn = document.getElementById('back-' + id);
-  const fwdBtn = document.getElementById('fwd-' + id);
-  const progContainer = document.getElementById('prog-' + id);
-  const progFill = document.getElementById('fill-' + id);
-  const timeDisplay = document.getElementById('time-' + id);
-  const volBtn = document.getElementById('vol-' + id);
-  const volRange = document.getElementById('vol-range-' + id);
+  // NOTE : les clics (lecture/pause, -10s/+10s, barre de progression, volume,
+  // plein ecran) sont geres par UN SEUL gestionnaire delegue sur le conteneur
+  // du feed (voir setupFeedDelegation). On ne garde ici que les ecouteurs
+  // "passifs" qui mettent a jour l'affichage (icone lecture/pause, barre de
+  // progression, temps, volume) en fonction de l'etat reel de la video.
+  const playBtn = controls.querySelector('#play-' + id);
+  const progFill = controls.querySelector('#fill-' + id);
+  const timeDisplay = controls.querySelector('#time-' + id);
+
   if (!playBtn || !video) return;
 
   video.addEventListener('waiting', () => loader.classList.add('visible'));
@@ -1409,35 +1413,8 @@ function setupVideoControls(video, id, loader, bigPlay) {
   video.addEventListener('canplaythrough', () => loader.classList.remove('visible'));
   video.addEventListener('loadeddata', () => loader.classList.remove('visible'));
 
-  function togglePlay() {
-    if (video.paused) {
-      if (video.muted) { video.muted = false; }
-      video.play().catch(function(err) {
-        if (err && err.name === 'NotAllowedError') {
-          video.muted = true;
-          video.play().catch(()=>{});
-        }
-      });
-    } else {
-      video.pause();
-    }
-  }
-  playBtn.addEventListener('click', (e) => { e.stopPropagation(); ensureVideoLoaded(video); togglePlay(); });
   video.addEventListener('play', () => { playBtn.innerHTML = '<i class="fas fa-pause"></i>'; bigPlay.classList.remove('visible'); bigPlay.innerHTML = '<i class="fas fa-pause"></i>'; });
   video.addEventListener('pause', () => { playBtn.innerHTML = '<i class="fas fa-play"></i>'; bigPlay.classList.add('visible'); bigPlay.innerHTML = '<i class="fas fa-play"></i>'; });
-  video.addEventListener('click', () => { ensureVideoLoaded(video); togglePlay(); });
-
-  if (backBtn) backBtn.addEventListener('click', (e) => { e.stopPropagation(); ensureVideoLoaded(video); video.currentTime = Math.max(0, video.currentTime - 10); });
-  if (fwdBtn) fwdBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    ensureVideoLoaded(video);
-    // On utilise Infinity par defaut (au lieu de 0) tant que la duree n'est pas
-    // encore connue : avant, "video.duration || 0" ramenait la video a 0
-    // seconde des qu'on cliquait sur avance rapide avant la fin du chargement
-    // des metadonnees, ce qui donnait l'impression que le bouton ne marchait pas.
-    const dur = (video.duration && isFinite(video.duration)) ? video.duration : Infinity;
-    video.currentTime = Math.min(dur, video.currentTime + 10);
-  });
 
   video.addEventListener('timeupdate', () => {
     if (video.duration && isFinite(video.duration) && video.duration > 0) {
@@ -1447,31 +1424,14 @@ function setupVideoControls(video, id, loader, bigPlay) {
     }
   });
 
-  if (progContainer) {
-    progContainer.addEventListener('click', (e) => {
-      e.stopPropagation();
-      ensureVideoLoaded(video);
-      const rect = progContainer.getBoundingClientRect();
-      if (video.duration && isFinite(video.duration) && video.duration > 0) {
-        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        video.currentTime = pct * video.duration;
-      }
-    });
-  }
-
   video.volume = 0.8;
-  if (volRange) volRange.addEventListener('input', (e) => { video.volume = e.target.value / 100; video.muted = false; updateVolumeIcon(video.volume, volBtn); });
-  if (volBtn) volBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    video.muted = !video.muted;
-    if (!video.muted && video.paused) { video.play().catch(()=>{}); }
-    updateVolumeIcon(video.muted ? 0 : video.volume, volBtn);
-  });
 
-  const fsBtn = document.getElementById('fullscreen-' + id);
-  if (fsBtn) {
-    fsBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(video); });
-  }
+  // Le curseur de volume se manipule par glissement (evenement "input"), pas par
+  // clic simple : il reste donc branche ici individuellement, la delegation de
+  // clics ne le concerne pas.
+  const volRange = controls.querySelector('#vol-range-' + id);
+  const volBtn = controls.querySelector('#vol-' + id);
+  if (volRange) volRange.addEventListener('input', (e) => { video.volume = e.target.value / 100; video.muted = false; updateVolumeIcon(video.volume, volBtn); });
 
   video.addEventListener('loadedmetadata', () => { timeDisplay.textContent = '0:00 / ' + formatTime(video.duration || 0); });
 }
@@ -1690,6 +1650,7 @@ async function init() {
   renderProfile();
   initDevMode();
   updateNavVisibility();
+  setupFeedDelegation();
 
   // Ensure only feed section is active on init
   document.querySelectorAll('.section').forEach(el => {
@@ -1703,6 +1664,85 @@ async function init() {
   updateProfileStatus();
 
   loadVideos();
+}
+
+// ===== Delegation des clics sur les controles video =====
+// Un seul gestionnaire, branche une seule fois sur le conteneur du feed
+// (#tiktok-feed), qui reste le meme element DOM meme quand loadVideos()
+// remplace son contenu a chaque rechargement. Ca evite tout probleme de
+// timing lie au moment ou les boutons individuels sont crees/deplaces dans
+// le DOM, et ca evite d'avoir a re-attacher des ecouteurs a chaque rendu.
+let feedDelegationSetup = false;
+function setupFeedDelegation() {
+  if (feedDelegationSetup) return;
+  const feed = document.getElementById('tiktok-feed');
+  if (!feed) return;
+  feedDelegationSetup = true;
+
+  feed.addEventListener('click', (e) => {
+    const slide = e.target.closest('.video-slide');
+    if (!slide) return;
+    const video = slide.querySelector('video');
+    if (!video) return;
+
+    // Barre de progression : calcule la position cliquee et deplace la lecture.
+    const progContainer = e.target.closest('.progress-bar-container');
+    if (progContainer) {
+      ensureVideoLoaded(video);
+      const rect = progContainer.getBoundingClientRect();
+      if (video.duration && isFinite(video.duration) && video.duration > 0) {
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        video.currentTime = pct * video.duration;
+      }
+      return;
+    }
+
+    // Boutons identifies par data-action (lecture/pause, -10s, +10s, volume, plein ecran).
+    const actionEl = e.target.closest('[data-action]');
+    if (actionEl) {
+      const action = actionEl.dataset.action;
+      ensureVideoLoaded(video);
+
+      if (action === 'playpause') {
+        if (video.paused) {
+          if (video.muted) video.muted = false;
+          video.play().catch((err) => {
+            if (err && err.name === 'NotAllowedError') { video.muted = true; video.play().catch(() => {}); }
+          });
+        } else {
+          video.pause();
+        }
+      } else if (action === 'back') {
+        video.currentTime = Math.max(0, video.currentTime - 10);
+      } else if (action === 'fwd') {
+        // Infinity par defaut tant que la duree n'est pas encore connue, pour
+        // ne pas ramener la video a 0 seconde avant la fin du chargement des
+        // metadonnees.
+        const dur = (video.duration && isFinite(video.duration)) ? video.duration : Infinity;
+        video.currentTime = Math.min(dur, video.currentTime + 10);
+      } else if (action === 'volume') {
+        video.muted = !video.muted;
+        if (!video.muted && video.paused) { video.play().catch(() => {}); }
+        updateVolumeIcon(video.muted ? 0 : video.volume, actionEl.closest('.volume-btn'));
+      } else if (action === 'fullscreen') {
+        toggleFullscreen(video);
+      }
+      return;
+    }
+
+    // Clic direct sur la video (en dehors des boutons) : bascule lecture/pause.
+    if (e.target === video) {
+      ensureVideoLoaded(video);
+      if (video.paused) {
+        if (video.muted) video.muted = false;
+        video.play().catch((err) => {
+          if (err && err.name === 'NotAllowedError') { video.muted = true; video.play().catch(() => {}); }
+        });
+      } else {
+        video.pause();
+      }
+    }
+  });
 }
 
 /* ========== ADMIN PANEL (mode developpeur uniquement) ========== */
