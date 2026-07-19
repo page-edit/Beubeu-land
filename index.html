@@ -459,7 +459,7 @@ body {
 .stat-card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 12px; }
 .stat-label { font-size: 10px; color: #a1a1aa; font-weight: 500; margin-bottom: 6px; }
 .stat-value { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
-.stat-value.emerald { color: #34d399; }
+.stat-value.emerald { color: #fb923c; }
 .stat-value.orange { color: #fb923c; }
 
 .tabs-wrapper { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -501,7 +501,7 @@ body {
 .user-id { font-size: 10px; color: #71717a; font-family: monospace; }
 
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; }
-.badge-premium { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+.badge-premium { background: #7c2d12; color: #fdba74; border: 1px solid #9a3412; }
 .badge-free { background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
 .badge-admin { background: #1e3a5f; color: #60a5fa; border: 1px solid #1e40af; }
 
@@ -514,7 +514,7 @@ body {
 .btn-view:hover { background: #3f3f46; }
 
 .upload-zone { border: 2px dashed #3f3f46; border-radius: 16px; padding: 28px 14px; text-align: center; cursor: pointer; transition: all 0.2s; }
-.upload-zone:hover { border-color: #10b981; background: #0f172a; }
+.upload-zone:hover { border-color: #f97316; background: #1c1207; }
 .upload-zone i { font-size: 34px; color: #52525b; margin-bottom: 10px; }
 .upload-zone-title { font-size: 14px; font-weight: 600; color: #d4d4d8; }
 .upload-zone-sub { font-size: 11px; color: #71717a; margin-top: 4px; }
@@ -553,7 +553,7 @@ body {
 .warning-user { font-weight: 600; color: #fafafa; font-size: 12px; }
 .warning-date { font-size: 10px; color: #71717a; }
 .warning-status { font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
-.warning-status.seen { background: #064e3b; color: #34d399; }
+.warning-status.seen { background: #7c2d12; color: #fdba74; }
 .warning-status.unseen { background: #7c2d12; color: #fdba74; }
 .warning-msg { background: #0f0f11; border: 1px solid #27272a; border-radius: 10px; padding: 10px; font-size: 12px; color: #d4d4d8; line-height: 1.5; }
 </style>
@@ -563,11 +563,8 @@ body {
 
 <!-- Header -->
 <div class="max-w-[520px] w-full mx-auto px-4 pt-1 pb-0 flex-shrink-0 text-center">
-  <div class="inline-flex items-center gap-2" style="padding: 2px 0;">
-    <div class="w-6 h-6 bg-white rounded-lg flex items-center justify-center">
-      <span class="text-black font-black text-sm tracking-[-1px]">B</span>
-    </div>
-    <span class="font-bold text-lg tracking-tighter">beubeuland</span>
+  <div class="inline-flex items-center" style="padding: 2px 0;">
+    <span class="font-black text-lg tracking-tighter text-white">beubeu</span><span class="font-black text-lg tracking-tighter" style="background:#f97316;color:#000;padding:1px 6px;border-radius:6px;">land</span>
   </div>
 </div>
 
@@ -586,11 +583,8 @@ body {
   <div id="section-feed" class="section active" style="flex-direction: column;">
     <div class="demo-container bg-black">
       <div class="app-header">
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 bg-white rounded-full flex items-center justify-center">
-            <span class="text-black text-xs font-black">B</span>
-          </div>
-          <span class="logo-text">beubeuland</span>
+        <div class="flex items-center gap-1">
+          <span class="logo-text text-white">beubeu</span><span class="logo-text" style="background:#f97316;color:#000;padding:0 5px;border-radius:5px;">land</span>
         </div>
         <a href="https://discord.gg/a2HexAGYK" target="_blank" class="discord-btn">
           <i class="fab fa-discord" style="font-size:10px;"></i> Discord
@@ -615,7 +609,7 @@ body {
         </div>
         <h2 id="profile-name" class="text-2xl font-bold">Beubeuland</h2>
         <p id="profile-bio" class="text-zinc-400 text-sm mt-1 text-center max-w-xs">demo@beubeuland.com</p>
-        <div id="profile-status" class="hidden mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900">
+        <div id="profile-status" class="hidden mt-5 px-5 py-1.5 bg-orange-950 text-orange-400 text-sm font-medium rounded-full flex items-center gap-2 border border-orange-900">
           <i class="fas fa-check-circle"></i> <span>Compte actif</span>
         </div>
         <button id="dev-exit-btn" onclick="deactivateDevMode()" class="hidden mt-2 text-xs text-zinc-500 underline">Quitter le mode developpeur</button>
@@ -634,7 +628,7 @@ body {
 
       <div class="admin-header-inner">
         <div class="admin-header-left">
-          <div class="admin-logo"><span>B</span></div>
+          <div class="admin-logo" style="background:#f97316;"><span style="color:#000;">B</span></div>
           <div class="admin-title-group">
             <span class="admin-title">Panneau Admin</span>
             <span class="admin-subtitle">ines_dz&#127474;&#127462;&#129467;</span>
@@ -670,7 +664,7 @@ body {
       <!-- Admin Upload : generateur de JSON (pas d'appel serveur, plus fiable) -->
       <div id="admin-upload" class="admin-tab-content">
         <div class="content-card">
-          <div class="content-card-header"><i class="fas fa-cloud-upload-alt text-emerald-400"></i>Ajouter une video</div>
+          <div class="content-card-header"><i class="fas fa-cloud-upload-alt text-orange-400"></i>Ajouter une video</div>
           <div class="content-card-body" style="padding: 16px;">
             <div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:12px;padding:12px;margin-bottom:14px;font-size:11px;color:#93c5fd;line-height:1.6;">
               <b>Etapes :</b><br>
@@ -697,7 +691,7 @@ body {
       <!-- Admin Users -->
       <div id="admin-users" class="admin-tab-content hidden">
         <div class="content-card">
-          <div class="content-card-header"><i class="fas fa-users text-emerald-400"></i>Utilisateurs inscrits</div>
+          <div class="content-card-header"><i class="fas fa-users text-orange-400"></i>Utilisateurs inscrits</div>
           <div class="content-card-body"><div id="users-list"></div></div>
         </div>
       </div>
@@ -705,7 +699,7 @@ body {
       <!-- Admin Videos -->
       <div id="admin-videos" class="admin-tab-content hidden">
         <div class="content-card">
-          <div class="content-card-header"><i class="fas fa-video text-emerald-400"></i>Toutes les videos</div>
+          <div class="content-card-header"><i class="fas fa-video text-orange-400"></i>Toutes les videos</div>
           <div class="content-card-body"><div id="all-videos-list"></div></div>
         </div>
       </div>
@@ -733,7 +727,7 @@ body {
     <div class="modal-body">
       <div style="margin-bottom: 14px;">
         <div style="font-size: 10px; color: #a1a1aa; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Destinataire</div>
-        <div id="warning-target-name" style="font-weight: 700; color: #34d399; font-size: 14px;"></div>
+        <div id="warning-target-name" style="font-weight: 700; color: #fb923c; font-size: 14px;"></div>
         <input type="hidden" id="warning-target-id">
       </div>
       <div>
@@ -752,7 +746,7 @@ body {
 <div id="video-preview-modal" class="modal-overlay">
   <div class="modal-box" style="max-width: 460px;">
     <div class="modal-header">
-      <h3><i class="fas fa-play-circle text-emerald-400 mr-2"></i>Apercu video</h3>
+      <h3><i class="fas fa-play-circle text-orange-400 mr-2"></i>Apercu video</h3>
       <button onclick="closeVideoPreview()" class="modal-close"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body" style="padding: 0; background: #000;">
@@ -768,14 +762,14 @@ body {
 <div id="comment-modal" class="profile-edit-modal">
   <div class="profile-edit-box" style="max-width: 400px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="font-bold text-lg"><i class="fas fa-comments mr-2 text-emerald-400"></i>Commentaires</h3>
+      <h3 class="font-bold text-lg"><i class="fas fa-comments mr-2 text-orange-400"></i>Commentaires</h3>
       <button onclick="closeCommentModal()" class="text-zinc-400 hover:text-white"><i class="fas fa-times"></i></button>
     </div>
     <div id="comments-count" style="font-size:11px;color:#a1a1aa;margin-bottom:8px;">0 commentaire</div>
     <div id="comments-list" style="flex:1;overflow-y:auto;min-height:0;margin-bottom:12px;"></div>
     <div style="display:flex;gap:8px;border-top:1px solid #27272a;padding-top:12px;">
       <input type="text" id="comment-input" placeholder="Ajouter un commentaire..." style="flex:1;padding:10px 14px;background:#0f0f11;border:1px solid #27272a;border-radius:12px;color:#fafafa;font-size:16px;outline:none;" onkeydown="if(event.key==='Enter')submitComment()">
-      <button onclick="submitComment()" style="padding:10px 16px;background:#10b981;border:none;border-radius:12px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
+      <button onclick="submitComment()" style="padding:10px 16px;background:#f97316;border:none;border-radius:12px;color:#000;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;"><i class="fas fa-paper-plane"></i></button>
     </div>
   </div>
 </div>
@@ -818,7 +812,7 @@ body {
     <div id="dev-code-error" style="font-size: 11px; color: #ef4444; margin-bottom: 12px; display: none;">Code incorrect</div>
     <div style="display: flex; gap: 8px;">
       <button onclick="closeDevCodeModal()" style="flex: 1;padding: 12px;background: #27272a;border: none;border-radius: 12px;color: #d4d4d8;font-size: 13px;font-weight: 600;cursor: pointer;">Annuler</button>
-      <button onclick="checkDevCode()" style="flex: 1;padding: 12px;background: #10b981;border: none;border-radius: 12px;color: #fff;font-size: 13px;font-weight: 600;cursor: pointer;">Valider</button>
+      <button onclick="checkDevCode()" style="flex: 1;padding: 12px;background: #f97316;border: none;border-radius: 12px;color: #000;font-size: 13px;font-weight: 600;cursor: pointer;">Valider</button>
     </div>
   </div>
 </div>
@@ -1100,7 +1094,7 @@ async function renderComments(videoId) {
       const date = new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
       html += '<div style="padding:10px 0;border-bottom:1px solid #27272a;">';
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
-      html += '<span style="font-weight:600;font-size:12px;color:#34d399;">@' + escapeHtml(c.userName) + '</span>';
+      html += '<span style="font-weight:600;font-size:12px;color:#fb923c;">@' + escapeHtml(c.userName) + '</span>';
       html += '<span style="font-size:10px;color:#71717a;">' + date + '</span>';
       html += '</div>';
       html += '<div style="font-size:13px;color:#d4d4d8;line-height:1.4;">' + escapeHtml(c.text) + '</div>';
@@ -1330,7 +1324,7 @@ async function loadVideos(forceRefresh) {
       overlay.className = 'video-overlay';
       const info = document.createElement('div');
       info.className = 'video-info';
-      info.innerHTML = '<div class="font-bold text-base leading-tight">' + escapeHtml(video.title) + '</div><div class="text-xs text-zinc-300 mt-0.5 leading-tight">' + escapeHtml(video.description || '') + '</div><div class="text-[10px] text-emerald-400 mt-1">@' + escapeHtml(video.authorName || 'Beubeuland') + '</div>';
+      info.innerHTML = '<div class="font-bold text-base leading-tight">' + escapeHtml(video.title) + '</div><div class="text-xs text-zinc-300 mt-0.5 leading-tight">' + escapeHtml(video.description || '') + '</div><div class="text-[10px] text-orange-400 mt-1">@' + escapeHtml(video.authorName || 'Beubeuland') + '</div>';
 
       const likeClass = userLiked ? 'liked' : '';
       const actions = document.createElement('div');
@@ -1561,7 +1555,7 @@ function updateProfileStatus() {
   const isDev = localStorage.getItem('beubeuland_devmode') === 'true';
   if (isDev) {
     status.innerHTML = '<i class="fas fa-code"></i> <span>Mode Developpeur</span>';
-    status.className = 'mt-5 px-5 py-1.5 bg-emerald-950 text-emerald-400 text-sm font-medium rounded-full flex items-center gap-2 border border-emerald-900';
+    status.className = 'mt-5 px-5 py-1.5 bg-orange-950 text-orange-400 text-sm font-medium rounded-full flex items-center gap-2 border border-orange-900';
     if (exitBtn) exitBtn.classList.remove('hidden');
   } else {
     // Badge "Compte gratuit" retire du profil pour les utilisateurs normaux.
@@ -1598,7 +1592,7 @@ function showDevToast(message) {
   if (old) old.remove();
   const toast = document.createElement('div');
   toast.id = 'dev-toast';
-  toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(16,185,129,0.95);color:#fff;padding:14px 28px;border-radius:16px;font-size:14px;font-weight:600;z-index:9999;backdrop-filter:blur(8px);box-shadow:0 8px 32px rgba(0,0,0,0.4);pointer-events:none;white-space:nowrap;animation:devToastIn 0.3s ease;';
+  toast.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(249,115,22,0.95);color:#000;padding:14px 28px;border-radius:16px;font-size:14px;font-weight:600;z-index:9999;backdrop-filter:blur(8px);box-shadow:0 8px 32px rgba(0,0,0,0.4);pointer-events:none;white-space:nowrap;animation:devToastIn 0.3s ease;';
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.animation = 'devToastOut 0.3s ease forwards'; }, 2000);
