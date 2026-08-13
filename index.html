@@ -6,7 +6,7 @@
   <title>Beubeuland • TikTok</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    :root { --orange:#f97316; --bg:#09090b; --panel:#18181b; --muted:#a1a1aa; }
+    :root { --orange:#f97316; --red:#fe2c55; --bg:#09090b; --panel:#18181b; --muted:#a1a1aa; }
     * { box-sizing:border-box; }
     html,body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:#fff; font-family:Inter,system-ui,-apple-system,sans-serif; }
     button,input { font:inherit; }
@@ -23,17 +23,48 @@
     .feed::-webkit-scrollbar { display:none; }
     .slide { position:relative; width:100%; height:100%; min-height:100%; scroll-snap-align:start; scroll-snap-stop:always; overflow:hidden; background:#000; }
     video { width:100%; height:100%; object-fit:cover; display:block; background:#000; }
-    .shade { pointer-events:none; position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,.82),transparent 40%,rgba(0,0,0,.18)); }
-    .info { position:absolute; left:16px; right:24px; bottom:78px; z-index:3; text-shadow:0 1px 5px #000; }
-    .info h2 { margin:0 0 5px; font-size:18px; }
-    .info p { margin:0; color:#ddd; font-size:13px; }
-    .controls { position:absolute; left:12px; right:12px; bottom:14px; z-index:4; display:flex; align-items:center; gap:9px; }
-    .control-btn { width:34px; height:34px; border:0; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.2); color:#fff; cursor:pointer; }
+    .shade { pointer-events:none; position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,.85),transparent 42%,rgba(0,0,0,.18)); }
+
+    /* ---- Infos type TikTok (auteur + légende + son) ---- */
+    .info { position:absolute; left:16px; right:88px; bottom:66px; z-index:3; text-shadow:0 1px 5px #000; }
+    .info .author-row { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .info .author { margin:0; font-size:16px; font-weight:800; letter-spacing:-.2px; display:inline-flex; align-items:center; gap:5px; }
+    .info .author i { color:#4da3ff; font-size:13px; filter:drop-shadow(0 1px 3px #000); }
+    .info .caption { margin:0; color:#f4f4f5; font-size:13px; line-height:1.4; }
+    .info .sound { margin-top:10px; display:flex; align-items:center; gap:7px; max-width:100%; }
+    .sound .disc { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#111; display:grid; place-items:center; border:1px solid #333; }
+    .sound .disc i { color:#fff; font-size:11px; animation:spin 4s linear infinite; }
+    .sound .marquee { flex:1; min-width:0; overflow:hidden; }
+    .sound .marquee span { display:inline-block; white-space:nowrap; will-change:transform; animation:marquee 9s linear infinite; font-size:12px; color:#e4e4e7; }
+    @keyframes spin { to { transform:rotate(360deg);} }
+    @keyframes marquee { 0% { transform:translateX(0);} 100% { transform:translateX(-50%);} }
+
+    /* ---- Rail d'actions à droite (like / commentaire / favori / partage) ---- */
+    .actions { position:absolute; right:8px; bottom:70px; z-index:4; display:flex; flex-direction:column; align-items:center; gap:17px; }
+    .action { display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:0; color:#fff; cursor:pointer; padding:0; }
+    .action i { font-size:27px; filter:drop-shadow(0 2px 5px #000); transition:transform .12s ease; }
+    .action:active i { transform:scale(.88); }
+    .action .count { font-size:11px; font-weight:800; text-shadow:0 1px 4px #000; }
+    .action.avatar-btn { position:relative; width:46px; height:46px; border-radius:50%; border:2px solid #fff; background:linear-gradient(135deg,#f97316,#ef4444); display:grid; place-items:center; font-weight:800; font-size:17px; color:#fff; box-shadow:0 3px 10px #0009; overflow:visible; }
+    .action.avatar-btn .plus { position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); background:var(--red); color:#fff; width:18px; height:18px; border-radius:50%; font-size:10px; line-height:18px; font-weight:800; display:grid; place-items:center; border:1.5px solid #000; }
+    .action.liked i { color:var(--red); animation:heartPop .35s ease; }
+    .action.saved i { color:#ffd21e; }
+    @keyframes heartPop { 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
+
+    /* ---- Coeur qui éclate au double-tap ---- */
+    .heart-burst { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(0); z-index:6; pointer-events:none; color:var(--red); font-size:92px; filter:drop-shadow(0 4px 18px rgba(254,44,85,.65)); animation:burst .95s ease forwards; }
+    @keyframes burst { 0%{transform:translate(-50%,-50%) scale(0); opacity:0} 20%{transform:translate(-50%,-50%) scale(1.2); opacity:1} 45%{transform:translate(-50%,-50%) scale(.92)} 70%{transform:translate(-50%,-50%) scale(1.05); opacity:1} 100%{transform:translate(-50%,-50%) scale(1.45); opacity:0} }
+
+    /* ---- Contrôles lecture ---- */
+    .controls { position:absolute; left:12px; right:12px; bottom:12px; z-index:4; display:flex; align-items:center; gap:9px; }
+    .control-btn { width:34px; height:34px; border:0; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.2); color:#fff; cursor:pointer; backdrop-filter:blur(6px); }
     .progress { flex:1; height:4px; border-radius:4px; background:rgba(255,255,255,.3); overflow:hidden; cursor:pointer; }
     .progress i { display:block; width:0; height:100%; background:#fff; }
     .time { min-width:72px; color:#eee; font-size:11px; text-align:right; font-variant-numeric:tabular-nums; }
+
     .locked video { filter:blur(23px) brightness(.35); transform:scale(1.08); }
     .locked .info,.locked .controls { opacity:.12; }
+    .locked .actions { display:none; }
     .lock-layer { position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; padding:24px; text-align:center; background:rgba(0,0,0,.25); }
     .lock-card { width:min(330px,100%); padding:26px 20px; border-radius:24px; background:rgba(18,18,20,.9); border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(13px); box-shadow:0 15px 60px #0008; }
     .lock-card i { color:var(--orange); font-size:31px; margin-bottom:12px; }
@@ -61,7 +92,7 @@
     .modal-head h2 { margin:0; font-size:17px; }
     .x { border:0; background:none; color:#aaa; cursor:pointer; font-size:16px; }
     label { display:block; color:var(--muted); font-size:11px; margin:12px 0 6px; }
-    input[type=text],input[type=file] { width:100%; padding:12px; border:1px solid #3f3f46; border-radius:11px; background:#0f0f11; color:#fff; }
+    input[type=text],input[type=file],select { width:100%; padding:12px; border:1px solid #3f3f46; border-radius:11px; background:#0f0f11; color:#fff; }
     .hint { color:#71717a; font-size:11px; line-height:1.45; margin:13px 0 0; }
     #devBtn { position:fixed; right:16px; bottom:16px; z-index:40; width:32px; height:32px; border:1px solid #3f3f46; border-radius:9px; background:#18181bcc; color:#a1a1aa; font-size:11px; font-weight:800; cursor:pointer; }
     #devBtn:hover { color:#fff; background:#27272a; }
@@ -107,6 +138,21 @@
     .admin-row-sub { color:#a1a1aa; font-size:10px; margin-top:3px; }
     .admin-mini { border:0; background:#27272a; color:#fff; padding:8px 10px; border-radius:9px; cursor:pointer; font-size:11px; white-space:nowrap; }
     .admin-empty { padding:28px; color:#71717a; text-align:center; font-size:13px; }
+
+    /* ---- Panneau de commentaires (bottom sheet type TikTok) ---- */
+    .comments-sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(100%,520px); max-height:72dvh; background:#0f0f11; border:1px solid #27272a; border-bottom:0; border-radius:20px 20px 0 0; z-index:70; display:flex; flex-direction:column; transition:transform .32s cubic-bezier(.16,1,.3,1); box-shadow:0 -12px 40px #000a; }
+    .comments-sheet.show { transform:translate(-50%,0); }
+    .comments-head { display:flex; justify-content:space-between; align-items:center; padding:15px 17px; border-bottom:1px solid #27272a; }
+    .comments-head h2 { margin:0; font-size:15px; }
+    .comments-list { flex:1; overflow-y:auto; padding:6px 16px; min-height:120px; }
+    .comment { padding:10px 0; border-bottom:1px solid #18181b; }
+    .comment .c-head { font-size:11px; color:#fb923c; font-weight:700; display:flex; justify-content:space-between; gap:10px; }
+    .comment .c-head time { color:#71717a; font-weight:500; }
+    .comment .c-text { font-size:13px; color:#e4e4e7; margin-top:3px; line-height:1.4; }
+    .comments-input { display:flex; gap:8px; padding:12px 14px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid #27272a; background:#0f0f11; }
+    .comments-input input { flex:1; padding:11px 15px; border:1px solid #3f3f46; border-radius:999px; background:#18181b; color:#fff; }
+    .comments-input button { border:0; border-radius:50%; width:42px; height:42px; background:var(--orange); color:#111; cursor:pointer; font-size:15px; flex-shrink:0; }
+
     @media(max-width:450px){ .admin-stats{grid-template-columns:1fr 1fr 1fr}.admin-stat strong{font-size:18px}.admin-page{padding:12px} }
     @media (min-width:600px) { .feed { border-left:8px solid #18181b; border-right:8px solid #18181b; border-radius:28px 28px 0 0; } }
   </style>
@@ -133,6 +179,18 @@
   </header>
 
   <main class="feed" id="feed"></main>
+</div>
+
+<div class="comments-sheet" id="commentsSheet" role="dialog" aria-modal="true">
+  <div class="comments-head">
+    <h2><span id="commentsCount">0</span> commentaires</h2>
+    <button class="x" id="closeComments"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="comments-list" id="commentsList"></div>
+  <div class="comments-input">
+    <input id="commentInput" type="text" placeholder="Ajouter un commentaire…" autocomplete="off">
+    <button id="sendCommentBtn" type="button" aria-label="Envoyer"><i class="fa-solid fa-paper-plane"></i></button>
+  </div>
 </div>
 
 <div class="models-page" id="modelsPage" role="dialog" aria-modal="true">
@@ -319,21 +377,163 @@
     const div = document.createElement('div'); div.textContent = text == null ? '' : String(text); return div.innerHTML;
   }
 
+  // ===== TikTok : likes / commentaires / favoris / abonnements (stockés localement) =====
+  function likesMapKey(){ return 'beubeuland_likes'; }
+  function getLikesMap(){ try{ return JSON.parse(localStorage.getItem(likesMapKey())||'{}'); }catch(e){ return {}; } }
+  function setLikesMap(map){ try{ localStorage.setItem(likesMapKey(), JSON.stringify(map)); }catch(e){} }
+  function isLiked(id){ return !!getLikesMap()[String(id)]; }
+  function toggleLike(id){
+    const map=getLikesMap(); const key=String(id);
+    if(map[key]) delete map[key]; else map[key]=true;
+    setLikesMap(map);
+    return !!map[key];
+  }
+  function baseCount(id){ return 40 + ((Number(id)||0) * 7) % 840; } // compteur de départ réaliste
+  function likeCount(id){ return baseCount(id) + (isLiked(id)?1:0); }
+
+  function commentsKey(id){ return 'beubeuland_comments_' + id; }
+  function getComments(id){ try{ return JSON.parse(localStorage.getItem(commentsKey(id))||'[]'); }catch(e){ return []; } }
+  function setComments(id, list){ try{ localStorage.setItem(commentsKey(id), JSON.stringify(list)); }catch(e){} }
+
+  function savedMapKey(){ return 'beubeuland_saved'; }
+  function getSavedMap(){ try{ return JSON.parse(localStorage.getItem(savedMapKey())||'{}'); }catch(e){ return {}; } }
+  function isSaved(id){ return !!getSavedMap()[String(id)]; }
+  function toggleSaved(id){
+    const map=getSavedMap(); const key=String(id);
+    if(map[key]) delete map[key]; else map[key]=true;
+    try{ localStorage.setItem(savedMapKey(), JSON.stringify(map)); }catch(e){}
+    return !!map[key];
+  }
+
+  function followingMapKey(){ return 'beubeuland_following'; }
+  function getFollowingMap(){ try{ return JSON.parse(localStorage.getItem(followingMapKey())||'{}'); }catch(e){ return {}; } }
+  function isFollowing(author){ return !!getFollowingMap()[String(author)]; }
+  function toggleFollow(author){
+    const map=getFollowingMap(); const key=String(author);
+    if(map[key]) delete map[key]; else map[key]=true;
+    try{ localStorage.setItem(followingMapKey(), JSON.stringify(map)); }catch(e){}
+    return !!map[key];
+  }
+
+  // Toast discret pour les confirmations (like, partage, favori…)
+  let toastTimer = null;
+  function toast(message){
+    let t = document.getElementById('toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = 'toast';
+      t.style.cssText = 'position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:#27272a;color:#fff;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:600;opacity:0;transition:opacity .3s;white-space:nowrap;';
+      document.body.appendChild(t);
+    }
+    t.textContent = message;
+    t.style.opacity = '1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>{ t.style.opacity='0'; }, 2200);
+  }
+
+  // ===== Panneau de commentaires =====
+  const commentsSheet = document.getElementById('commentsSheet');
+  const commentsList = document.getElementById('commentsList');
+  const commentsCountEl = document.getElementById('commentsCount');
+  let activeCommentId = null;
+  function openComments(id){
+    activeCommentId = id;
+    renderComments(id);
+    commentsSheet.classList.add('show');
+    setTimeout(()=>document.getElementById('commentInput').focus(), 120);
+  }
+  function closeComments(){ commentsSheet.classList.remove('show'); activeCommentId = null; }
+  function renderComments(id){
+    const comments = getComments(id);
+    commentsCountEl.textContent = comments.length;
+    if(!comments.length){ commentsList.innerHTML = '<div class="admin-empty">Aucun commentaire. Sois le premier !</div>'; return; }
+    commentsList.innerHTML = comments.map(c =>
+      '<div class="comment"><div class="c-head"><span>@' + safe(c.author || 'Anonyme') + '</span><time>' + safe(c.date || '') + '</time></div><div class="c-text">' + safe(c.text) + '</div></div>'
+    ).join('');
+    commentsList.scrollTop = commentsList.scrollHeight;
+  }
+  function sendComment(){
+    if(activeCommentId == null) return;
+    const input = document.getElementById('commentInput');
+    const text = input.value.trim();
+    if(!text) return;
+    const comments = getComments(activeCommentId);
+    comments.push({ text, author:'Moi', date:new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) });
+    setComments(activeCommentId, comments);
+    input.value = '';
+    renderComments(activeCommentId);
+    updateCommentCounter(activeCommentId);
+  }
+  function updateCommentCounter(id){
+    const slide = [...document.querySelectorAll('.slide')].find(s => s.dataset.id === String(id));
+    if(!slide) return;
+    const count = slide.querySelector('.comment-btn .count');
+    if(count) count.textContent = getComments(id).length;
+  }
+
+  // ===== Partage =====
+  function shareVideo(item){
+    const url = location.href;
+    const title = item.title || 'Beubeuland';
+    if(navigator.share){
+      navigator.share({ title:'Beubeuland', text:title, url }).catch(()=>{});
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(url).then(()=>toast('Lien copié dans le presse-papiers')).catch(()=>toast(url));
+    } else {
+      toast('Copie ce lien : ' + url);
+    }
+  }
+
+  // ===== Coeur qui éclate au centre =====
+  function showHeartBurst(slide){
+    const burst = document.createElement('div');
+    burst.className = 'heart-burst';
+    burst.innerHTML = '<i class="fa-solid fa-heart"></i>';
+    slide.appendChild(burst);
+    setTimeout(()=>burst.remove(), 1000);
+  }
+
   function createSlide(item, index) {
     const slide = document.createElement('article');
     const locked = index >= FREE_LIMIT && !isPremium();
     const src = cleanUrl(item.videoUrl || item.src);
     slide.className = 'slide' + (locked ? ' locked' : '');
+    slide.dataset.id = item.id;
+
+    const authorRaw = item.authorName || item.author || 'beubeuland';
+    const author = safe(authorRaw);
+    const initial = safe(String(authorRaw).charAt(0).toUpperCase());
+    const caption = safe((item.title || '') + (item.description ? ' · ' + item.description : ''));
+    const soundRaw = item.sound || 'son original — beubeuland';
+    const marqueeText = safe(soundRaw) + ' &nbsp;•&nbsp; ' + safe(soundRaw);
+
     slide.innerHTML = `
-      <video playsinline loop preload="${locked ? 'none' : 'metadata'}" ${locked || !src ? '' : `src="${safe(src)}"`}></video>
+      <video playsinline loop preload="${locked ? 'none' : 'metadata'}" ${locked || !src ? '' : `src="${safe(src)}"`} muted></video>
       <div class="shade"></div>
-      <div class="info"><h2>${safe(item.title || 'Vidéo')}</h2><p>${safe(item.description || '')}</p></div>
+      <div class="info">
+        <div class="author-row">
+          <h2 class="author">@${author} <i class="fa-solid fa-circle-check"></i></h2>
+        </div>
+        <p class="caption">${caption}</p>
+        <div class="sound">
+          <span class="disc"><i class="fa-solid fa-music"></i></span>
+          <div class="marquee"><span>${marqueeText}</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="action avatar-btn${isFollowing(authorRaw) ? ' following' : ''}" type="button" title="Suivre @${author}"><span>${initial}</span><span class="plus">${isFollowing(authorRaw) ? '<i class="fa-solid fa-check"></i>' : '+'}</span></button>
+        <button class="action like-btn${isLiked(item.id) ? ' liked' : ''}" type="button" title="J'aime"><i class="fa-solid fa-heart"></i><span class="count">${likeCount(item.id)}</span></button>
+        <button class="action comment-btn" type="button" title="Commentaires"><i class="fa-solid fa-comment-dots"></i><span class="count">${getComments(item.id).length}</span></button>
+        <button class="action bookmark-btn${isSaved(item.id) ? ' saved' : ''}" type="button" title="Favoris"><i class="fa-solid fa-bookmark"></i><span class="count">${isSaved(item.id) ? 'Enregistré' : ''}</span></button>
+        <button class="action share-btn" type="button" title="Partager"><i class="fa-solid fa-share"></i><span class="count">Partager</span></button>
+      </div>
       <div class="controls">
         <button class="control-btn play" type="button"><i class="fa-solid fa-play"></i></button>
         <div class="progress"><i></i></div>
         <span class="time">0:00 / 0:00</span>
         <button class="control-btn mute" type="button"><i class="fa-solid fa-volume-xmark"></i></button>
       </div>`;
+
     const video = slide.querySelector('video');
     if (locked) {
       const lock = document.createElement('div'); lock.className = 'lock-layer';
@@ -342,6 +542,7 @@
       slide.appendChild(lock);
       return slide;
     }
+
     const play=slide.querySelector('.play'), mute=slide.querySelector('.mute'), bar=slide.querySelector('.progress'), fill=slide.querySelector('.progress i'), display=slide.querySelector('.time');
     play.onclick = () => video.paused ? video.play().catch(()=>{}) : video.pause();
     mute.onclick = () => { video.muted=!video.muted; mute.innerHTML=`<i class="fa-solid fa-volume-${video.muted?'xmark':'high'}"></i>`; };
@@ -351,7 +552,49 @@
     video.ontimeupdate=()=>{ if(video.duration) { fill.style.width=(video.currentTime/video.duration*100)+'%'; display.textContent=time(video.currentTime)+' / '+time(video.duration); } };
     video.onloadedmetadata=()=>display.textContent='0:00 / '+time(video.duration);
     bar.onclick=e=>{if(video.duration) video.currentTime=((e.clientX-bar.getBoundingClientRect().left)/bar.offsetWidth)*video.duration;};
-    video.addEventListener('click',()=>video.paused?video.play().catch(()=>{}):video.pause());
+
+    // Actions type TikTok
+    const likeBtn = slide.querySelector('.like-btn');
+    const commentBtn = slide.querySelector('.comment-btn');
+    const bookmarkBtn = slide.querySelector('.bookmark-btn');
+    const shareBtn = slide.querySelector('.share-btn');
+    const avatarBtn = slide.querySelector('.avatar-btn');
+
+    likeBtn.onclick = () => {
+      const liked = toggleLike(item.id);
+      likeBtn.classList.toggle('liked', liked);
+      likeBtn.querySelector('.count').textContent = likeCount(item.id);
+      if(liked) showHeartBurst(slide);
+    };
+    commentBtn.onclick = () => openComments(item.id);
+    bookmarkBtn.onclick = () => {
+      const saved = toggleSaved(item.id);
+      bookmarkBtn.classList.toggle('saved', saved);
+      bookmarkBtn.querySelector('.count').textContent = saved ? 'Enregistré' : '';
+      toast(saved ? 'Ajouté aux favoris' : 'Retiré des favoris');
+    };
+    shareBtn.onclick = () => shareVideo(item);
+    avatarBtn.onclick = () => {
+      const following = toggleFollow(authorRaw);
+      avatarBtn.classList.toggle('following', following);
+      avatarBtn.querySelector('.plus').innerHTML = following ? '<i class="fa-solid fa-check"></i>' : '+';
+      toast(following ? 'Tu suis @' + authorRaw : 'Tu ne suis plus @' + authorRaw);
+    };
+
+    // Un tap = lecture/pause, double-tap = j'aime (comme sur TikTok)
+    let tapTimer = null;
+    video.addEventListener('click', () => {
+      if(tapTimer){
+        clearTimeout(tapTimer); tapTimer = null;
+        const liked = toggleLike(item.id);
+        likeBtn.classList.toggle('liked', liked);
+        likeBtn.querySelector('.count').textContent = likeCount(item.id);
+        if(liked) showHeartBurst(slide);
+        return;
+      }
+      tapTimer = setTimeout(()=>{ tapTimer = null; video.paused ? video.play().catch(()=>{}) : video.pause(); }, 260);
+    });
+
     return slide;
   }
 
@@ -385,10 +628,14 @@
   }
 
   document.getElementById('closePaywall').onclick = closePaywall;
+  document.getElementById('closeComments').onclick = closeComments;
+  document.getElementById('sendCommentBtn').onclick = sendComment;
+  document.getElementById('commentInput').onkeydown = e => { if(e.key === 'Enter') sendComment(); };
+  commentsSheet.onclick = e => { if(e.target === commentsSheet) closeComments(); };
   const modelsPage=document.getElementById('modelsPage');
   const modelsFrame=document.getElementById('modelsFrame');
   const modelsFallback=document.getElementById('modelsFallback');
-  
+
   document.getElementById('modelsBtn').onclick=()=>{modelsPage.classList.add('show');};
   document.getElementById('closeModels').onclick=()=>{modelsPage.classList.remove('show');};
   modelsFrame.addEventListener('error',()=>{modelsFrame.style.display='none';modelsFallback.style.display='block';});
@@ -514,7 +761,7 @@
   document.getElementById('checkDev').onclick=checkCode;
   devCode.addEventListener('keydown',e=>{if(e.key==='Enter')checkCode();});
 
-  document.addEventListener('keydown', e => { if(e.key==='Escape'){closePaywall(); modal.classList.remove('show'); devModal.classList.remove('show'); adminPanel.classList.remove('show'); modelsPage.classList.remove('show');} });
+  document.addEventListener('keydown', e => { if(e.key==='Escape'){closePaywall(); modal.classList.remove('show'); devModal.classList.remove('show'); adminPanel.classList.remove('show'); modelsPage.classList.remove('show'); closeComments();} });
   // Navigation PC : les flèches et PageUp/PageDown permettent aussi de changer de vidéo.
   document.addEventListener('keydown', (event) => {
     if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
