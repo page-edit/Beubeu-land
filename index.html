@@ -19,7 +19,12 @@
     .top-actions { display:flex; gap:8px; }
     .top-btn { display:inline-flex; align-items:center; gap:6px; color:#fff; background:#27272a; border:0; border-radius:999px; padding:8px 12px; font-size:11px; cursor:pointer; }
     .top-btn.upload { background:var(--orange); color:#111; font-weight:800; }
-    .feed { width:min(100%,520px); flex:1 1 auto; height:calc(100dvh - 48px); min-height:0; max-height:calc(100dvh - 48px); overflow-y:scroll; overflow-x:hidden; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; background:#000; }
+    /* ---- Onglets « Pour toi / Abonnements » (comme TikTok) ---- */
+    .tabs { width:min(100%,520px); height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; gap:24px; position:relative; z-index:2; }
+    .tab { border:0; background:none; color:#71717a; font-size:14px; font-weight:600; cursor:pointer; padding:4px 2px; position:relative; transition:color .15s; }
+    .tab.active { color:#fff; font-weight:800; }
+    .tab.active::after { content:''; position:absolute; left:50%; bottom:-1px; transform:translateX(-50%); width:22px; height:3px; border-radius:99px; background:var(--orange); }
+    .feed { width:min(100%,520px); flex:1 1 auto; height:calc(100dvh - 84px); min-height:0; max-height:calc(100dvh - 84px); overflow-y:scroll; overflow-x:hidden; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; scroll-snap-type:y mandatory; scrollbar-width:none; background:#000; }
     .feed::-webkit-scrollbar { display:none; }
     .slide { position:relative; width:100%; height:100%; min-height:100%; scroll-snap-align:start; scroll-snap-stop:always; overflow:hidden; background:#000; }
     video { width:100%; height:100%; object-fit:cover; display:block; background:#000; }
@@ -94,7 +99,7 @@
     label { display:block; color:var(--muted); font-size:11px; margin:12px 0 6px; }
     input[type=text],input[type=file],select { width:100%; padding:12px; border:1px solid #3f3f46; border-radius:11px; background:#0f0f11; color:#fff; }
     .hint { color:#71717a; font-size:11px; line-height:1.45; margin:13px 0 0; }
-    #devBtn { position:fixed; right:16px; bottom:16px; z-index:40; width:32px; height:32px; border:1px solid #3f3f46; border-radius:9px; background:#18181bcc; color:#a1a1aa; font-size:11px; font-weight:800; cursor:pointer; }
+    #devBtn { position:fixed; left:16px; top:16px; z-index:40; width:32px; height:32px; border:1px solid #3f3f46; border-radius:9px; background:#18181bcc; color:#a1a1aa; font-size:11px; font-weight:800; cursor:pointer; }
     #devBtn:hover { color:#fff; background:#27272a; }
     #devModal .modal-box { max-width:340px; text-align:center; }
     #adminStatus { color:#86efac; font-size:11px; margin-top:12px; display:none; }
@@ -154,6 +159,7 @@
     .comments-input button { border:0; border-radius:50%; width:42px; height:42px; background:var(--orange); color:#111; cursor:pointer; font-size:15px; flex-shrink:0; }
 
     @media(max-width:450px){ .admin-stats{grid-template-columns:1fr 1fr 1fr}.admin-stat strong{font-size:18px}.admin-page{padding:12px} }
+    @media (max-width:599px) { .topbar { padding-left:50px; } } /* laisse la place au bouton admin en haut à gauche */
     @media (min-width:600px) { .feed { border-left:8px solid #18181b; border-right:8px solid #18181b; border-radius:28px 28px 0 0; } }
   </style>
 </head>
@@ -177,6 +183,11 @@
       <button class="top-btn" id="telegramBtn"><i class="fa-brands fa-telegram"></i> Telegram</button>
     </div>
   </header>
+
+  <nav class="tabs" id="feedTabs" aria-label="Fil d’actualité">
+    <button class="tab active" data-tab="foryou" type="button">Pour toi</button>
+    <button class="tab" data-tab="following" type="button">Abonnements</button>
+  </nav>
 
   <main class="feed" id="feed"></main>
 </div>
@@ -269,15 +280,14 @@
 <div class="modal" id="uploadModal" role="dialog" aria-modal="true">
   <div class="modal-box">
     <div class="modal-head"><h2><i class="fa-solid fa-cloud-arrow-up" style="color:#f97316"></i> Uploader une vidéo</h2><button class="x" id="closeUpload"><i class="fa-solid fa-xmark"></i></button></div>
-    <label for="videoTitle">Titre</label>
+    <label for="videoTitle">Titre (facultatif : nom du fichier par défaut)</label>
     <input id="videoTitle" type="text" placeholder="Titre de la vidéo">
-    <label for="videoFile">Fichier vidéo (prévisualisation locale)</label>
-    <input id="videoFile" type="file" accept="video/*">
-    <label for="r2Filename">Nom exact du fichier Cloudflare R2</label>
-    <input id="r2Filename" type="text" placeholder="exemple : IMG_7662.mp4">
+    <label for="videoFile">Fichier(s) vidéo (un ou plusieurs)</label>
+    <input id="videoFile" type="file" accept="video/*" multiple>
     <video id="uploadPreview" controls playsinline style="display:none;width:100%;max-height:180px;object-fit:contain;background:#000;border-radius:12px;margin-top:12px"></video>
-    <button class="orange-btn" style="margin-top:17px" id="prepareUpload"><i class="fa-solid fa-copy"></i> Préparer l'upload</button>
-    <p class="hint" id="uploadResult">Choisis une vidéo pour la prévisualiser. Pour une mise en ligne réelle, envoie-la vers Cloudflare R2 puis ajoute son URL dans videos.json.</p>
+    <button class="orange-btn" style="margin-top:17px" id="saveLocalVideo"><i class="fa-solid fa-floppy-disk"></i> Enregistrer la vidéo</button>
+    <button class="orange-btn" style="margin-top:9px;background:#27272a;color:#fff" id="prepareUpload"><i class="fa-solid fa-copy"></i> Générer le code pour videos.json</button>
+    <p class="hint" id="uploadResult">Aucun stockage externe nécessaire. « Enregistrer » stocke la vidéo dans ce navigateur (elle apparaît aussitôt dans le feed). « Générer le code » produit le JSON avec la vidéo intégrée, à coller dans videos.json.</p>
     <div id="jsonResult" style="display:none;margin-top:14px;text-align:left">
       <label for="jsonOutput">Code à copier dans videos.json</label>
       <textarea id="jsonOutput" readonly style="width:100%;min-height:190px;resize:vertical;padding:11px;border:1px solid #3f3f46;border-radius:11px;background:#0f0f11;color:#d4d4d8;font:11px/1.45 monospace"></textarea>
@@ -320,6 +330,7 @@
   const feed = document.getElementById('feed');
   const paywall = document.getElementById('paywall');
   let allVideos = [];
+  let activeTab = 'foryou'; // fil actif
   let forumUnsubscribe = null;
   let adminMessagesUnsubscribe = null;
   const forumBtn = document.getElementById('forumBtn');
@@ -361,6 +372,13 @@
     firebaseDb.collection('forumMessages').add({text,city:document.getElementById('forumCity').value,userId:firebaseUser.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp(),deleted:false}).then(()=>input.value='').catch(console.error);
   }
   updateForumAccess();
+  // ===== Onglets « Pour toi / Abonnements » (comme TikTok) =====
+  function setFeedTab(tab){
+    activeTab = tab;
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab === tab));
+    renderVideos(allVideos);
+  }
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setFeedTab(b.dataset.tab));
 
   function time(s) { if (!isFinite(s)) return '0:00'; return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'); }
   function openPaywall() { paywall.classList.add('show'); }
@@ -371,6 +389,7 @@
     const markdown = text.match(/^\[.*?\]\((https?:\/\/.*)\)$/);
     const resolved = markdown ? markdown[1] : text;
     if (/^https?:\/\//i.test(resolved)) return resolved;
+    if (/^(blob:|data:)/i.test(resolved)) return resolved;
     return R2_PUBLIC_BASE_URL.replace(/\/$/, '') + '/' + resolved.replace(/^\//, '');
   }
   function safe(text) {
@@ -469,7 +488,7 @@
     if(!slide) return;
     const count = slide.querySelector('.comment-btn .count');
     if(count) count.textContent = getComments(id).length;
-  }
+      }
 
   // ===== Partage =====
   function shareVideo(item){
@@ -544,8 +563,10 @@
     }
 
     const play=slide.querySelector('.play'), mute=slide.querySelector('.mute'), bar=slide.querySelector('.progress'), fill=slide.querySelector('.progress i'), display=slide.querySelector('.time');
+    const discIcon = slide.querySelector('.disc i');
+    discIcon.style.animationPlayState = 'paused'; // son coupé au départ, comme TikTok
     play.onclick = () => video.paused ? video.play().catch(()=>{}) : video.pause();
-    mute.onclick = () => { video.muted=!video.muted; mute.innerHTML=`<i class="fa-solid fa-volume-${video.muted?'xmark':'high'}"></i>`; };
+    mute.onclick = () => { video.muted=!video.muted; mute.innerHTML=`<i class="fa-solid fa-volume-${video.muted?'xmark':'high'}"></i>`; discIcon.style.animationPlayState = video.muted ? 'paused' : 'running'; };
     video.onplay=()=>play.innerHTML='<i class="fa-solid fa-pause"></i>';
     video.onpause=()=>play.innerHTML='<i class="fa-solid fa-play"></i>';
     video.onerror=()=>{ display.textContent='Vidéo indisponible'; };
@@ -579,6 +600,7 @@
       avatarBtn.classList.toggle('following', following);
       avatarBtn.querySelector('.plus').innerHTML = following ? '<i class="fa-solid fa-check"></i>' : '+';
       toast(following ? 'Tu suis @' + authorRaw : 'Tu ne suis plus @' + authorRaw);
+      if (activeTab === 'following' && !following) renderVideos(allVideos);
     };
 
     // Un tap = lecture/pause, double-tap = j'aime (comme sur TikTok)
@@ -598,31 +620,73 @@
     return slide;
   }
 
+  function visibleVideos(videos){
+    if (activeTab === 'following') {
+      const following = getFollowingMap();
+      return videos.filter(v => following[String(v.authorName || v.author || '')]);
+    }
+    return videos;
+  }
   function renderVideos(videos) {
     feed.innerHTML='';
-    if (!videos.length) { feed.innerHTML='<div style="padding:40px 20px;text-align:center;color:#71717a">Aucune vidéo disponible.</div>'; return; }
-    videos.forEach((video,index)=>feed.appendChild(createSlide(video,index)));
+    const list = visibleVideos(videos);
+    if (!list.length) {
+      feed.innerHTML = activeTab === 'following'
+        ? '<div style="padding:40px 20px;text-align:center;color:#71717a"><i class="fa-solid fa-user-plus" style="font-size:30px;color:#3f3f46;margin-bottom:12px;display:block"></i>Aucun abonnement pour l’instant.<br><small>Appuie sur le bouton + d’un créateur pour le suivre.</small></div>'
+        : '<div style="padding:40px 20px;text-align:center;color:#71717a">Aucune vidéo disponible.</div>';
+      return;
+    }
+    list.forEach((video,index)=>feed.appendChild(createSlide(video,index)));
     document.querySelectorAll('.slide').forEach(s=>observer.observe(s));
+    // Fin de fil : carte de replay type TikTok.
+    const endCard = document.createElement('article');
+    endCard.className = 'slide end-card';
+    endCard.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;text-align:center;padding:30px"><i class="fa-solid fa-heart" style="font-size:44px;color:var(--red)"></i><h2 style="margin:0;font-size:18px">Tu es à jour !</h2><p style="margin:0;color:var(--muted);font-size:13px;line-height:1.5">Toutes les vidéos ont été visionnées.<br>Reviens plus tard ou regarde-les à nouveau.</p><button class="orange-btn" id="replayBtn" type="button" style="width:auto;padding:11px 18px"><i class="fa-solid fa-rotate-left"></i> Revoir depuis le début</button></div>';
+    endCard.querySelector('#replayBtn').onclick = () => feed.scrollTo({ top:0, behavior:'smooth' });
+    feed.appendChild(endCard);
   }
 
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-    const video=entry.target.querySelector('video');
-    if (!video || entry.target.classList.contains('locked')) return;
-    if (entry.isIntersecting && entry.intersectionRatio >= .65) video.play().catch(()=>{}); else video.pause();
+    const slide=entry.target;
+    const video=slide.querySelector('video');
+    if (!video || slide.classList.contains('locked')) return;
+    if (entry.isIntersecting && entry.intersectionRatio >= .65) {
+      video.play().catch(()=>{});
+      // Précharge la vidéo suivante pour une transition instantanée, comme TikTok.
+      const nextSlide = slide.nextElementSibling;
+      const nextVideo = nextSlide ? nextSlide.querySelector('video') : null;
+      if (nextVideo) { nextVideo.preload = 'auto'; nextVideo.load(); }
+    } else {
+      video.pause();
+    }
   }), {root:feed, threshold:[.65]});
 
   async function loadVideos() {
+    let remote = [];
+    let remoteError = null;
     try {
       const response=await fetch(VIDEOS_JSON_URL+'?t='+Date.now(),{cache:'no-store'});
       if (!response.ok) throw new Error('HTTP '+response.status);
       const raw=await response.json();
       const seen=new Set();
-      const videos=raw.filter(v=>v && v.id && !seen.has(v.id) && (seen.add(v.id),true)).sort((a,b)=>Number(b.id)-Number(a.id));
-      allVideos = videos;
-      updateAdminStats();
-      renderVideos(videos);
+      remote=raw.filter(v=>v && v.id && !seen.has(v.id) && (seen.add(v.id),true)).sort((a,b)=>Number(b.id)-Number(a.id));
     } catch(error) {
       console.error(error);
+      remoteError = error;
+    }
+    // Vidéos uploadées depuis le panneau admin : stockées dans le navigateur (IndexedDB), aucun stockage externe.
+    const local = (await getAllLocalVideos()).map(v => {
+      const copy = Object.assign({}, v);
+      delete copy.blob;
+      copy.local = true;
+      copy.videoUrl = v.blob ? URL.createObjectURL(v.blob) : (v.videoUrl || '');
+      return copy;
+    });
+    const videos = [...remote, ...local].sort((a,b)=>Number(b.id)-Number(a.id));
+    allVideos = videos;
+    updateAdminStats();
+    renderVideos(videos);
+    if (remoteError && !local.length) {
       feed.innerHTML='<div style="padding:40px 20px;text-align:center;color:#a1a1aa">Impossible de charger videos.json.<br><small>Vérifie la connexion ou l’URL GitHub.</small></div>';
     }
   }
@@ -657,43 +721,124 @@
   let generatedJson = '';
   let selectedFileUrl = '';
   fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
+    const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
     if (!file) return;
     if (selectedFileUrl) URL.revokeObjectURL(selectedFileUrl);
     selectedFileUrl = URL.createObjectURL(file);
     uploadPreview.src = selectedFileUrl;
     uploadPreview.style.display = 'block';
   });
-  document.getElementById('prepareUpload').onclick = () => {
-    const file = fileInput.files[0];
+  // ===== Upload sans stockage externe =====
+  // Les vidéos sont stockées directement dans le navigateur (IndexedDB), ou
+  // intégrées en base64 dans videos.json via le JSON généré.
+  const LOCAL_DB_NAME = 'beubeuland_local_videos';
+  const LOCAL_STORE = 'videos';
+  function openLocalDb(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(LOCAL_DB_NAME, 1);
+      req.onupgradeneeded = () => { if(!req.result.objectStoreNames.contains(LOCAL_STORE)) req.result.createObjectStore(LOCAL_STORE, { keyPath:'id' }); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function localTx(mode, action){
+    return openLocalDb().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(LOCAL_STORE, mode);
+      const req = action(tx.objectStore(LOCAL_STORE));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => resolve(req.result);
+    }));
+  }
+  function getAllLocalVideos(){ return localTx('readonly', store => store.getAll()).catch(()=>[]); }
+  function addLocalVideo(record){ return localTx('readwrite', store => store.put(record)); }
+  function deleteLocalVideo(id){ return localTx('readwrite', store => store.delete(id)); }
+  function readFileAsDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+  function selectedVideoFiles(){ return fileInput.files ? [...fileInput.files] : []; }
+  function uploadTitleFor(file, title, index, count){
+    const base = title || file.name.replace(/\.[^.]+$/, '');
+    return count > 1 ? base + ' ' + (index + 1) : base;
+  }
+  // « Enregistrer » : stocke la vidéo dans le navigateur, aucun stockage externe.
+  document.getElementById('saveLocalVideo').onclick = async () => {
+    const files = selectedVideoFiles();
     const title = document.getElementById('videoTitle').value.trim();
-    const r2Filename = document.getElementById('r2Filename').value.trim().replace(/^\/+/, '');
     const result = document.getElementById('uploadResult');
-    if (!file || !title || !r2Filename) { result.textContent='Indique un titre, sélectionne une vidéo et renseigne le nom exact du fichier R2.'; result.style.color='#fb923c'; return; }
-    const videoUrl = R2_PUBLIC_BASE_URL.replace(/\/$/, '') + '/' + r2Filename;
-    const entry = { id: Date.now(), title, description:'', videoUrl, fileType:file.type || 'video/mp4', authorId:'admin', authorName:'Beubeuland', isAdmin:true, created_at:new Date().toISOString() };
-    const json = JSON.stringify(entry, null, 2) + ',';
-    generatedJson = json;
-    jsonOutput.value = generatedJson;
-    jsonResult.style.display = 'block';
-    jsonButton.style.display='block';
-    jsonButton.onclick = () => {
-      const blob = new Blob([json], {type:'application/json'});
-      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='video-entry.json'; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    };
-    copyJson.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(generatedJson);
-        copyJson.innerHTML = '<i class="fa-solid fa-check"></i> Code copié !';
-        setTimeout(() => copyJson.innerHTML = '<i class="fa-solid fa-copy"></i> Copier le code JSON', 1800);
-      } catch (error) {
-        jsonOutput.focus(); jsonOutput.select(); document.execCommand('copy');
-        copyJson.textContent = 'Code sélectionné';
+    const saveBtn = document.getElementById('saveLocalVideo');
+    if (!files.length) { result.textContent='Sélectionne d’abord une ou plusieurs vidéos.'; result.style.color='#fb923c'; return; }
+    const original = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement…';
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        await addLocalVideo({ id: Date.now() + i, title: uploadTitleFor(file, title, i, files.length), description:'', fileType:file.type || 'video/mp4', blob:file, authorId:'admin', authorName:'Beubeuland', isAdmin:true, created_at:new Date().toISOString() });
       }
-    };
-    result.textContent = `JSON prêt pour ${r2Filename}. L’URL générée est : ${videoUrl}`;
-    result.style.color='#86efac';
+      jsonResult.style.display = 'none';
+      jsonButton.style.display = 'none';
+      const n = files.length;
+      result.textContent = (n > 1 ? n + ' vidéos enregistrées' : 'Vidéo enregistrée') + ' : ' + (n > 1 ? 'elles apparaissent' : 'elle apparaît') + ' maintenant dans le feed (aucun stockage externe).';
+      result.style.color = '#86efac';
+      toast(n > 1 ? n + ' vidéos enregistrées' : 'Vidéo enregistrée');
+      await loadVideos();
+    } catch (error) {
+      console.error(error);
+      result.textContent = 'Erreur pendant l’enregistrement : ' + (error && error.message ? error.message : 'stockage indisponible');
+      result.style.color = '#f87171';
+    } finally { saveBtn.innerHTML = original; }
+  };
+  // « Générer le code » : JSON avec la vidéo intégrée (base64), à coller dans videos.json.
+  document.getElementById('prepareUpload').onclick = async () => {
+    const files = selectedVideoFiles();
+    const title = document.getElementById('videoTitle').value.trim();
+    const result = document.getElementById('uploadResult');
+    const prepareBtn = document.getElementById('prepareUpload');
+    if (!files.length) { result.textContent='Sélectionne d’abord une ou plusieurs vidéos.'; result.style.color='#fb923c'; return; }
+    const bigFiles = files.filter(f => f.size > 30 * 1024 * 1024);
+    if (bigFiles.length) { result.textContent='Attention : ' + bigFiles.length + ' fichier' + (bigFiles.length > 1 ? 's' : '') + ' dépasse' + (bigFiles.length > 1 ? 'nt' : '') + ' 30 Mo. videos.json doit rester sous 100 Mo sur GitHub — compresse tes vidéos avant.'; result.style.color='#fb923c'; }
+    const original = prepareBtn.innerHTML;
+    prepareBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Encodage…';
+    try {
+      const entries = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await readFileAsDataUrl(file);
+        entries.push({ id: Date.now() + i, title: uploadTitleFor(file, title, i, files.length), description:'', videoUrl:dataUrl, fileType:file.type || 'video/mp4', authorId:'admin', authorName:'Beubeuland', isAdmin:true, created_at:new Date().toISOString() });
+      }
+      const json = entries.map(e => JSON.stringify(e, null, 2)).join(',\n') + ',';
+      generatedJson = json;
+      jsonOutput.value = generatedJson;
+      jsonResult.style.display = 'block';
+      jsonButton.style.display='block';
+      jsonButton.onclick = () => {
+        const blob = new Blob([json], {type:'application/json'});
+        const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='video-entry.json'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      };
+      copyJson.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(generatedJson);
+          copyJson.innerHTML = '<i class="fa-solid fa-check"></i> Code copié !';
+          setTimeout(() => copyJson.innerHTML = '<i class="fa-solid fa-copy"></i> Copier le code JSON', 1800);
+        } catch (error) {
+          jsonOutput.focus(); jsonOutput.select(); document.execCommand('copy');
+          copyJson.textContent = 'Code sélectionné';
+        }
+      };
+      const totalMb = (files.reduce((s,f)=>s+f.size,0) / (1024*1024)).toFixed(1);
+      result.textContent = 'JSON prêt pour ' + files.length + ' vidéo' + (files.length > 1 ? 's' : '') + ' (' + totalMb + ' Mo au total, vidéos intégrées). Colle-le dans videos.json et pousse sur GitHub : aucun stockage externe requis.';
+      result.style.color='#86efac';
+    } catch (error) {
+      console.error(error);
+      result.textContent = 'Erreur pendant l’encodage : ' + (error && error.message ? error.message : 'fichier illisible');
+      result.style.color = '#f87171';
+    } finally { prepareBtn.innerHTML = original; }
   };
   document.getElementById('subscribeBtn').onclick = () => {
     const stripeUrl = 'https://buy.stripe.com/eVq9AS7q83Ng74f5Eyew80t';
@@ -726,11 +871,20 @@
   function closeAdmin(){adminPanel.classList.remove('show');}
   function showAdminTab(tab){
     document.querySelectorAll('.admin-tab').forEach(b=>b.classList.toggle('active',b.dataset.adminTab===tab));
-    if(tab==='upload') adminContent.innerHTML=`<div class="admin-card-title"><i class="fa-solid fa-cloud-arrow-up" style="color:#f97316"></i> Ajouter une vidéo</div><div style="padding:16px"><p class="hint" style="margin:0 0 15px">L’upload reste réservé à l’administrateur. Envoie d’abord la vidéo sur Cloudflare R2, puis indique ici le nom exact du fichier pour générer automatiquement la bonne URL dans videos.json.</p><button class="orange-btn" id="adminOpenUpload" type="button" onclick="document.getElementById('uploadModal').classList.add('show')"><i class="fa-solid fa-upload"></i> Ouvrir l’upload</button></div>`;
+    if(tab==='upload') adminContent.innerHTML=`<div class="admin-card-title"><i class="fa-solid fa-cloud-arrow-up" style="color:#f97316"></i> Ajouter une vidéo</div><div style="padding:16px"><p class="hint" style="margin:0 0 15px">L’upload reste réservé à l’administrateur et ne passe plus par un stockage externe. « Enregistrer la vidéo » la stocke directement dans ce navigateur (elle apparaît aussitôt dans le feed), et « Générer le code pour videos.json » produit le JSON avec la vidéo intégrée, à coller dans videos.json.</p><button class="orange-btn" id="adminOpenUpload" type="button" onclick="document.getElementById('uploadModal').classList.add('show')"><i class="fa-solid fa-upload"></i> Ouvrir l’upload</button></div>`;
     if(tab==='videos'){
-      const rows=allVideos.map(v=>`<div class="admin-row"><div style="min-width:0"><div class="admin-row-title">${safe(v.title||'Sans titre')}</div><div class="admin-row-sub">@${safe(v.authorName||'inconnu')} · ${v.created_at?new Date(v.created_at).toLocaleDateString('fr-FR'):'-'}</div></div><button class="admin-mini" data-preview="${safe(cleanUrl(v.videoUrl||''))}"><i class="fa-solid fa-play"></i> Voir</button></div>`).join('');
-      adminContent.innerHTML=`<div class="admin-card-title"><i class="fa-solid fa-video" style="color:#f97316"></i> Toutes les vidéos (${allVideos.length})</div><div class="admin-list">${rows||'<div class="admin-empty">Aucune vidéo</div>'}</div>`;
+      const local = allVideos.filter(v=>v.local);
+      const remote = allVideos.filter(v=>!v.local);
+      const localRows = local.map(v=>`<div class="admin-row"><div style="min-width:0"><div class="admin-row-title">${safe(v.title||'Sans titre')}</div><div class="admin-row-sub">Stockée dans ce navigateur (aucun stockage externe) · ${v.created_at?new Date(v.created_at).toLocaleDateString('fr-FR'):'-'}</div></div><div style="display:flex;gap:6px"><button class="admin-mini" data-preview="${safe(v.videoUrl||'')}"><i class="fa-solid fa-play"></i> Voir</button><button class="admin-mini" style="background:#7f1d1d;color:#fecaca" data-delete-video="${v.id}"><i class="fa-solid fa-trash"></i> Supprimer</button></div></div>`).join('');
+      const remoteRows = remote.map(v=>`<div class="admin-row"><div style="min-width:0"><div class="admin-row-title">${safe(v.title||'Sans titre')}</div><div class="admin-row-sub">@${safe(v.authorName||'inconnu')} · ${v.created_at?new Date(v.created_at).toLocaleDateString('fr-FR'):'-'}</div></div><button class="admin-mini" data-preview="${safe(cleanUrl(v.videoUrl||''))}"><i class="fa-solid fa-play"></i> Voir</button></div>`).join('');
+      adminContent.innerHTML=`<div class="admin-card-title"><i class="fa-solid fa-video" style="color:#f97316"></i> Vidéos uploadées ici (${local.length})</div><div class="admin-list">${localRows||'<div class="admin-empty">Aucune vidéo enregistrée dans ce navigateur</div>'}</div><div class="admin-card-title" style="border-top:1px solid #27272a"><i class="fa-solid fa-globe" style="color:#f97316"></i> Vidéos de videos.json (${remote.length})</div><div class="admin-list">${remoteRows||'<div class="admin-empty">Aucune vidéo</div>'}</div>`;
       adminContent.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>window.open(b.dataset.preview,'_blank','noopener'));
+      adminContent.querySelectorAll('[data-delete-video]').forEach(b=>b.onclick=async ()=>{
+        await deleteLocalVideo(Number(b.dataset.deleteVideo));
+        toast('Vidéo supprimée');
+        await loadVideos();
+        showAdminTab('videos');
+      });
     }
     if(tab==='users') adminContent.innerHTML='<div class="admin-card-title"><i class="fa-solid fa-users" style="color:#f97316"></i> Utilisateurs</div><div class="admin-list"><div class="admin-row"><div><div class="admin-row-title">Visiteur local</div><div class="admin-row-sub">Identifiant navigateur : '+safe(localStorage.getItem('beubeuland_userId')||'non enregistré')+'</div></div><span class="admin-mini">Actif</span></div></div>';
     if(tab==='warnings'){
